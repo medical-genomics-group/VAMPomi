@@ -77,7 +77,6 @@ beta[idx] = np.random.normal(0,np.sqrt(bvar),cm)
 print("Var(beta) =", bvar, flush=True)
 
 # Save true signals to file
-np.savetxt(os.path.join(out_fpath, fname + ".beta_true"), beta, fmt="%0.10f")
 beta_true_binf = open(os.path.join(out_fpath, fname + "_beta_true.bin"), "wb")
 beta_true_binf.write(struct.pack(str(M)+'d', *beta.squeeze()))
 beta_true_binf.close()
@@ -92,9 +91,7 @@ Mtot = 0
 train_binf = open(os.path.join(out_fpath, fname_train + ".bin"), "wb")
 test_binf = open(os.path.join(out_fpath, fname_test + ".bin"), "wb")
 
-
-
-# For all chrommosomes
+# For all zarr files (each file one chrommosome)
 for i,f in enumerate(files):
 
     # zarr file name
