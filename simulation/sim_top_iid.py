@@ -59,6 +59,14 @@ print("Number of test samples:", N_test, flush=True)
 # Save train test indicator mask
 np.savetxt(os.path.join(out_fpath, fname + ".msk"), msk)
 
+# Save .dim files. Information on number of samples and markers
+dimf_train = open(os.path.join(out_fpath, fname_train + ".dim"), 'w')
+dimf_test = open(os.path.join(out_fpath, fname_test + ".dim"), 'w')
+dimf_train.write("%d %d" % (N_train, M))
+dimf_test.write("%d %d" % (N_test, M))
+dimf_train.close()
+dimf_test.close()
+
 # List of zarr files in directory 
 files = os.listdir(zarr_fpath)
 
