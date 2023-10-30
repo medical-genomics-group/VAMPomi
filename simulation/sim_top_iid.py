@@ -59,6 +59,14 @@ print("Number of test samples:", N_test, flush=True)
 # Save train test indicator mask
 np.savetxt(os.path.join(out_fpath, fname + ".msk"), msk)
 
+# Save .dim files. Information on number of samples and markers
+dimf_train = open(os.path.join(out_fpath, fname_train + ".dim"), 'w')
+dimf_test = open(os.path.join(out_fpath, fname_test + ".dim"), 'w')
+dimf_train.write("%d %d" % (N_train, M))
+dimf_test.write("%d %d" % (N_test, M))
+dimf_train.close()
+dimf_test.close()
+
 # List of zarr files in directory 
 files = os.listdir(zarr_fpath)
 
@@ -77,7 +85,6 @@ beta[idx] = np.random.normal(0,np.sqrt(bvar),cm)
 print("Var(beta) =", bvar, flush=True)
 
 # Save true signals to file
-np.savetxt(os.path.join(out_fpath, fname + ".beta_true"), beta, fmt="%0.10f")
 beta_true_binf = open(os.path.join(out_fpath, fname + "_beta_true.bin"), "wb")
 beta_true_binf.write(struct.pack(str(M)+'d', *beta.squeeze()))
 beta_true_binf.close()
@@ -92,9 +99,7 @@ Mtot = 0
 train_binf = open(os.path.join(out_fpath, fname_train + ".bin"), "wb")
 test_binf = open(os.path.join(out_fpath, fname_test + ".bin"), "wb")
 
-
-
-# For all chrommosomes
+# For all zarr files (each file one chrommosome)
 for i,f in enumerate(files):
 
     # zarr file name
