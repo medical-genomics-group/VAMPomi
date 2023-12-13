@@ -22,6 +22,8 @@ vamp::vamp( int N,
             double gamw, 
             int max_iter,
             int CG_max_iter,
+            int EM_max_iter,
+            int prior_tune_max_iter,
             int use_lmmse_damp,
             double rho,
             int learn_vars,
@@ -42,6 +44,8 @@ vamp::vamp( int N,
             gamw(gamw),
             max_iter(max_iter),
             CG_max_iter(CG_max_iter),
+            EM_max_iter(EM_max_iter),
+            auto_var_max_iter(prior_tune_max_iter),
             use_lmmse_damp(use_lmmse_damp),
             rho(rho),
             learn_vars(learn_vars),
@@ -182,16 +186,12 @@ std::vector<double> vamp::infere_linear(data* dataset){
             alpha1 = 0;
             MPI_Allreduce(&sum_d, &alpha1, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
             alpha1 /= Mt;
-            eta1 = gam1 / alpha1;
+            //eta1 = gam1 / alpha1;
 
             if (it <= 1)
                 break;
 
-            // because we want both EM updates to be performed by maximizing likelihood
-            // with respect to the old gamma
-
             gam1_reEst_prev = gam1;
-            gam1 = std::min( std::max(  1.0 / (1.0/eta1 + l2_norm2(x1_hat_m_r1, 1)/Mt), gamma_min ), gamma_max );
 
             updatePrior();
 
@@ -203,19 +203,17 @@ std::vector<double> vamp::infere_linear(data* dataset){
                 break;
         }
 
-        // saving gam1 estimates
-        //gam1s.push_back(gam1);
-
         if (rank == 0)
             std::cout << "A total of " << std::max(it_revar - 1,1) << " variance and prior tuning iterations were performed" << std::endl;
         
         // damping 
         if (it > 1){ 
-            std::vector<double> x1_hat_temp = x1_hat;
             for (int i = 0; i < M; i++)
                 x1_hat[i] = rho * x1_hat[i] + (1-rho) * x1_hat_prev[i];
-            alpha1 = rho * alpha1 + (1-rho) * alpha1_prev;
+            //alpha1 = rho * alpha1 + (1 - rho) * alpha1_prev;
         }
+
+        eta1 = gam1 / alpha1;
             
         z1 = (*dataset).Ax(x1_hat.data());
 
@@ -240,10 +238,6 @@ std::vector<double> vamp::infere_linear(data* dataset){
 
         gam_before = gam2;
         gam2 = std::min(std::max(eta1 - gam1, gamma_min), gamma_max);
-        //if (rank == 0){
-        //    std::cout << "eta1 = " << eta1 << std::endl;
-        //    std::cout << "gam2 = " << gam2 << std::endl;
-        //}
 
         r2_prev = r2;
 
@@ -266,13 +260,6 @@ std::vector<double> vamp::infere_linear(data* dataset){
         MPI_Allreduce(&se_dev, &se_dev_total, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
         double gam2_true = Mt / se_dev_total;
-        //if (rank == 0)
-        //    std::cout << "true gam2 = " << Mt / se_dev_total << std::endl;
-
-
-        // new place for prior update
-        //if (auto_var_max_iter == 0 || it <=2)
-        //    updatePrior();
 
         err_measures(dataset, 1, metrics);
 
@@ -326,28 +313,11 @@ std::vector<double> vamp::infere_linear(data* dataset){
         if (rank == 0)
             std::cout << "onsager took "  << end_onsager - start_onsager << " seconds." << std::endl;
         
-        //if (rank == 0)
-        //    std::cout << "alpha2 = " << alpha2 << std::endl;
-        
         eta2 = gam2 / alpha2;
 
-        // re-estimating gam2 <- new
-        std::vector<double> x2_hat_m_r2 = x2_hat;
-        for (int i0 = 0; i0 < x2_hat_m_r2.size(); i0++)
-            x2_hat_m_r2[i0] = x2_hat_m_r2[i0] - r2[i0];
-
-        if (auto_var_max_iter >= 1 && it > 2){
-            gam2 = std::min( std::max(  1 / (1/eta2 + l2_norm2(x2_hat_m_r2, 1)/Mt), gamma_min ), gamma_max );
-        }
-        //gam2s.push_back(gam2);
-
-        if (rank == 0)
-            std::cout << "gam2 re-est = " << gam2 << std::endl;
-
+        double gam1_prev = gam1;
         gam1 = std::min( std::max( eta2 - gam2, gamma_min ), gamma_max );
-        
-        //if (rank == 0)
-        //    std::cout << "gam1 = " << gam1 << std::endl;
+        gam1 = rho * gam1 + (1 - rho) * gam1_prev; // damping
 
         for (int i = 0; i < M; i++)
             r1[i] = (eta2 * x2_hat[i] - gam2 * r2[i]) / gam1;
@@ -360,8 +330,6 @@ std::vector<double> vamp::infere_linear(data* dataset){
         MPI_Allreduce(&se_dev1, &se_dev_total1, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
         double gam1_true = Mt / se_dev_total1;
-        //if (rank == 0)
-        //    std::cout << "true gam1 = " << Mt / se_dev_total1 << std::endl; 
 
         // learning a noise precision parameter
         updateNoisePrec(dataset);

@@ -45,15 +45,6 @@ int main(int argc, char** argv)
         // Reading train set
         data dataset(phenfp, mrkfp, model, N , M, Mt, S, rank, alpha_scale);
 
-        // Reading test set
-        const std::string mrkfp_test = opt.get_meth_file_test();
-        const std::string phenfp_test = opt.get_phen_file_test(); // currently it is only supported passing one pheno files as an input argument
-
-        size_t N_test = opt.get_N_test();
-        size_t Mt_test = opt.get_Mt_test();
-
-        data dataset_test(phenfp_test, mrkfp_test, model, N_test, M, Mt_test, S, rank, alpha_scale);
-
         // Initialize model hyperparameters
         double h2 = opt.get_h2(); // heritability
         double gamw = 1.0 / (1.0 - h2); // Noise precision
@@ -62,6 +53,8 @@ int main(int argc, char** argv)
         int max_iter = opt.get_iterations();
         int learn_vars = opt.get_learn_vars();
         int CG_max_iter = opt.get_CG_max_iter();
+        int EM_max_iter = opt.get_EM_max_iter();
+        int prior_tune_max_iter = opt.get_prior_tune_max_iter();
         int use_lmmse_damp = opt.get_use_lmmse_damp();
         double rho = opt.get_rho();
         std::vector<double> vars = opt.get_vars();
@@ -83,6 +76,8 @@ int main(int argc, char** argv)
                     gamw,
                     max_iter, 
                     CG_max_iter,
+                    EM_max_iter,
+                    prior_tune_max_iter,
                     use_lmmse_damp,
                     rho,
                     learn_vars,
@@ -97,28 +92,6 @@ int main(int argc, char** argv)
         
         std::vector<double> x_est = emvamp.infere(&dataset); // Infer model parameters
 
-        // x_hat estimates normalization
-        for (int i0 = 0; i0 < x_est.size(); i0++)
-            x_est[i0] *= sqrt( (double) N_test );
-
-        std::vector<double> z_test = dataset_test.Ax(x_est.data()); // predicted outcome
-        std::vector<double> y_test = dataset_test.get_phen(); //true outcome
-
-        // Calculate L2 prediction error
-        double l2_pred_err2 = 0;
-        for (int i0 = 0; i0 < N_test; i0++){
-            l2_pred_err2 += (y_test[i0] - z_test[i0]) * (y_test[i0] - z_test[i0]);
-        }  
-
-        double stdev = calc_stdev(y_test); // standard deviation of true outcome y
-        double r2 = 1 - l2_pred_err2 / ( stdev * stdev * y_test.size() ); // R2 test
-
-        // Print metrics
-        if (rank == 0){
-            std::cout << "y stdev^2 = " << stdev * stdev << std::endl;  
-            std::cout << "test l2 pred err^2 = " << l2_pred_err2 << std::endl;
-            std::cout << "test R2 = " << r2 << std::endl;
-        }
     }
     else if (opt.get_run_mode() == "test") // just analyzing the result on the test data
     {
@@ -142,7 +115,7 @@ int main(int argc, char** argv)
 
         // Open output file for storing test metrics (R2)
         MPI_File outcsv_test_fh;
-        std::string outcsv_test_fp = opt.get_out_dir() + "/" + opt.get_out_name() + ".csv";
+        std::string outcsv_test_fp = opt.get_out_dir() + "/" + opt.get_out_name() + "_test.csv";
         MPI_File_delete(outcsv_test_fp.c_str(), MPI_INFO_NULL);
         check_mpi(MPI_File_open(MPI_COMM_WORLD,
                             outcsv_test_fp.c_str(),

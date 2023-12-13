@@ -53,6 +53,8 @@ int main(int argc, char** argv)
         int max_iter = opt.get_iterations();
         int learn_vars = opt.get_learn_vars();
         int CG_max_iter = opt.get_CG_max_iter();
+        int EM_max_iter = opt.get_EM_max_iter();
+        int prior_tune_max_iter = opt.get_prior_tune_max_iter();
         int use_lmmse_damp = opt.get_use_lmmse_damp();
         double rho = opt.get_rho();
         std::vector<double> vars = opt.get_vars();
@@ -63,8 +65,8 @@ int main(int argc, char** argv)
         if(opt.get_true_signal_file() != "")
             true_signal = mpi_read_vec_from_file(opt.get_true_signal_file(), M, S);
         else 
-            throw ("FATAL: True signal file not provided!");
-            //true_signal = std::vector<double> (M, 0.0);
+            //throw ("FATAL: True signal file not provided!");
+            true_signal = std::vector<double> (M, 0.0);
 
         // ---------------- running VAMP algorithm -------------------- //
         vamp emvamp(N, 
@@ -75,6 +77,8 @@ int main(int argc, char** argv)
                     gamw,
                     max_iter, 
                     CG_max_iter,
+                    EM_max_iter,
+                    prior_tune_max_iter,
                     use_lmmse_damp,
                     rho,
                     learn_vars,

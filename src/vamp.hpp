@@ -68,6 +68,8 @@ public:
             double gamw, 
             int max_iter,
             int CG_max_iter,
+            int EM_max_iter,
+            int prior_tune_max_iter,
             int use_lmmse_damp,
             double rho,
             int learn_vars,

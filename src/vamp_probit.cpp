@@ -100,10 +100,10 @@ std::vector<double> vamp::infere_bin_class( data* dataset ){
 
         x1_hat_prev = x1_hat;
         double alpha1_prev = alpha1;
-        double gam1_reEst_prev;
-        int it_revar = 1;
+        //double gam1_reEst_prev;
+        //int it_revar = 1;
 
-        for (; it_revar <= auto_var_max_iter; it_revar++){
+        //for (; it_revar <= auto_var_max_iter; it_revar++){
 
             // new signal estimate
             for (int i = 0; i < M; i++)
@@ -126,18 +126,19 @@ std::vector<double> vamp::infere_bin_class( data* dataset ){
             alpha1 /= Mt;
             eta1 = gam1 / alpha1;
 
-            if (it <= 1)
-                break;
+            //if (it <= 1)
+            //    break;
 
-            gam1_reEst_prev = gam1;
-            gam1 = std::min( std::max(  1 / (1/eta1 + l2_norm2(x1_hat_m_r1, 1)/Mt), gamma_min ), gamma_max );
+            //gam1_reEst_prev = gam1;
+            //gam1 = std::min( std::max(  1 / (1/eta1 + l2_norm2(x1_hat_m_r1, 1)/Mt), gamma_min ), gamma_max );
 
-            updatePrior();
+            //updatePrior();
+            if (it > 1) updatePrior();
 
-            if ( abs(gam1 - gam1_reEst_prev) < 1e-3 )
-                break;
+            //if ( abs(gam1 - gam1_reEst_prev) < 1e-3 )
+            //    break;
             
-        }
+        //}
 
         // damping on the level of x1
         if (it > 1){ 
@@ -185,12 +186,12 @@ std::vector<double> vamp::infere_bin_class( data* dataset ){
         std::vector<double> y = (*dataset).get_phen();
 
         std::vector<double> z1_hat_prev = z1_hat;
-        double tau1_reEst_prev;
-        it_revar = 1;
+        //double tau1_reEst_prev;
+        //it_revar = 1;
         //auto_var_max_iter = 1;
         double beta1;
 
-        for (; it_revar <= auto_var_max_iter; it_revar++){
+        //for (; it_revar <= auto_var_max_iter; it_revar++){
 
             // new signal estimate
             for (int i=0; i<N; i++){
@@ -218,16 +219,16 @@ std::vector<double> vamp::infere_bin_class( data* dataset ){
             beta1 /= N;
             double zeta1 = tau1 / beta1;
 
-            if (it <= 1)
-                break;
+            //if (it <= 1)
+            //    break;
 
-            tau1_reEst_prev = tau1;
-            tau1 = std::min( std::max(  1 / (1/zeta1 + l2_norm2(z1_hat_m_p1, 0)/N), gamma_min ), gamma_max );
+            //tau1_reEst_prev = tau1;
+            //tau1 = std::min( std::max(  1 / (1/zeta1 + l2_norm2(z1_hat_m_p1, 0)/N), gamma_min ), gamma_max );
 
-            if ( abs(tau1 - tau1_reEst_prev) < 1e-2 )
-                break;
+            //if ( abs(tau1 - tau1_reEst_prev) < 1e-2 )
+            //    break;
             
-        }
+        //}
         
         for (int i=0; i<N; i++)
             p2[i] = (z1_hat[i] - beta1*p1[i]) / (1-beta1);
@@ -306,12 +307,12 @@ std::vector<double> vamp::infere_bin_class( data* dataset ){
         eta2 = gam2 / alpha2;
 
         // re-estimation of gam2
-        std::vector<double> x2_hat_m_r2 = x2_hat;
-        for (int i0 = 0; i0 < x2_hat_m_r2.size(); i0++)
-            x2_hat_m_r2[i0] = x2_hat_m_r2[i0] - r2[i0];
+        //std::vector<double> x2_hat_m_r2 = x2_hat;
+        //for (int i0 = 0; i0 < x2_hat_m_r2.size(); i0++)
+        //    x2_hat_m_r2[i0] = x2_hat_m_r2[i0] - r2[i0];
 
-        if (it > 1)
-            gam2 = std::min( std::max(  1 / (1/eta2 + l2_norm2(x2_hat_m_r2, 1)/Mt), gamma_min ), gamma_max );
+        //if (it > 1)
+        //    gam2 = std::min( std::max(  1 / (1/eta2 + l2_norm2(x2_hat_m_r2, 1)/Mt), gamma_min ), gamma_max );
 
         r1_prev = r1;
         for (int i=0; i<M; i++)
@@ -333,14 +334,14 @@ std::vector<double> vamp::infere_bin_class( data* dataset ){
         double beta2 = (double) Mt / N * (1 - alpha2);
 
         // re-estimation of tau2
-        std::vector<double> z2_hat_m_p2 = z2_hat;
-        for (int i0 = 0; i0 < N; i0++)
-            z2_hat_m_p2[i0] = z2_hat_m_p2[i0] - p2[i0];
+        //std::vector<double> z2_hat_m_p2 = z2_hat;
+        //for (int i0 = 0; i0 < N; i0++)
+        //    z2_hat_m_p2[i0] = z2_hat_m_p2[i0] - p2[i0];
 
-        double zeta2 = tau2 / beta2;
+        //double zeta2 = tau2 / beta2;
 
-        if (it > 1)
-            tau2 = 1.0 / (1.0/zeta2 + l2_norm2(z2_hat_m_p2, 0)/N);
+        //if (it > 1)
+        //    tau2 = 1.0 / (1.0/zeta2 + l2_norm2(z2_hat_m_p2, 0)/N);
 
         p1_prev = p1;
         for (int i=0; i<N; i++)

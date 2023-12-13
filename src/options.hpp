@@ -35,6 +35,7 @@ public:
 
     unsigned int get_EM_max_iter() const { return EM_max_iter; }
     unsigned int get_CG_max_iter() const { return CG_max_iter; }
+    unsigned int get_prior_tune_max_iter() const { return prior_tune_max_iter; }
     unsigned int get_Mt()  const { return Mt; }
     unsigned int get_Mt_test()  const { return Mt_test; }
     unsigned int get_N() const { return N; }
@@ -73,6 +74,7 @@ private:
     double EM_err_thr = 1e-2;
     unsigned int EM_max_iter = 10;
     unsigned int CG_max_iter = 60;
+    unsigned int prior_tune_max_iter = 1;
     unsigned int Mt;
     unsigned int N;
     unsigned int N_test;
