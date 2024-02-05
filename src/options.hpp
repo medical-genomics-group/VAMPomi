@@ -35,13 +35,13 @@ public:
 
     unsigned int get_EM_max_iter() const { return EM_max_iter; }
     unsigned int get_CG_max_iter() const { return CG_max_iter; }
-    unsigned int get_prior_tune_max_iter() const { return prior_tune_max_iter; }
+    double get_CG_err_tol() const {return CG_err_tol; }
+
     unsigned int get_Mt()  const { return Mt; }
     unsigned int get_Mt_test()  const { return Mt_test; }
     unsigned int get_N() const { return N; }
     unsigned int get_N_test() const { return N_test; }
     unsigned int get_num_mix_comp() const { return num_mix_comp; }
-    unsigned int get_use_lmmse_damp() const { return use_lmmse_damp; }
     unsigned int get_C() const { return C; }
     unsigned int get_redglob() const { return redglob; }
     unsigned int get_learn_vars() const { return learn_vars; }
@@ -65,23 +65,22 @@ private:
     std::string cov_estimate_file = "";
     std::string cov_file = "";
     std::string cov_file_test = "";
-    std::string run_mode = "";
+    std::string run_mode = "infere";
     std::string out_dir = "";
     std::string out_name = "";
     std::string model = "linear";
 
-    double stop_criteria_thr = 1e-4;
+    double stop_criteria_thr = 0.0;
     double EM_err_thr = 1e-2;
-    unsigned int EM_max_iter = 10;
-    unsigned int CG_max_iter = 60;
-    unsigned int prior_tune_max_iter = 1;
+    unsigned int EM_max_iter = 1;
+    unsigned int CG_max_iter = 500;
+    double CG_err_tol = 1e-5;
     unsigned int Mt;
     unsigned int N;
     unsigned int N_test;
     unsigned int Mt_test;
-    unsigned int num_mix_comp;
-    unsigned int use_lmmse_damp = 0;
-    unsigned int learn_vars = 1;
+    unsigned int num_mix_comp = 2;
+    unsigned int learn_vars = 0;
     double alpha_scale = 1.0; 
     unsigned int redglob = 0;
     unsigned int C = 0;
@@ -90,10 +89,10 @@ private:
     double h2 = 0.5;
     double gam1 = 1e-6;
     int verbosity = 0;
-    unsigned int iterations = 1;
+    unsigned int iterations = 10;
 
-    std::vector<double> vars;
-    std::vector<double> probs;
+    std::vector<double> vars = std::vector<double> {0.0, 0.001};
+    std::vector<double> probs = std::vector<double> {0.5, 0.5};
     std::vector<int> test_iter_range = std::vector<int>(2, -1);
 
     void fail_if_last(char** argv, const int i);
