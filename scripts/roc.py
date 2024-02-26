@@ -2,72 +2,83 @@ import numpy as np
 import argparse
 import struct
 import os
-from sklearn.metrics import confusion_matrix, roc_curve
+from sklearn.metrics import confusion_matrix, roc_curve, auc
 import matplotlib.pyplot as plt
 
+eps = 1e-32
+
 # This script visualize ROC curve
-print("...Computing ROC curve", flush=True)
+print("...Ploting ROC curve for VAMPomi", flush=True)
+print("\n", flush=True)
 
 # Initialize parser
 parser = argparse.ArgumentParser()
-parser.add_argument("-pip", "--pip", help = "Path to pip bin file")
-parser.add_argument("-true_signal", "--true-signal", help = "Path to true signal binary file")
+parser.add_argument("-pval", "--pval", help = "Path to binary file storing p values")
+parser.add_argument("-true_signal", "--true-signal", help = "Path to binary file storing true signals")
+parser.add_argument("-out_name", "--out-name", help = "Output file name")
+parser.add_argument("-it", "--it", help = "Target iteration", default=35)
 parser.add_argument("-M", "--M", help = "Number of markers")
-parser.add_argument("-th", "--th", help = "PIP threshold", default=0.95)
+parser.add_argument("-th", "--th", help = "P-values threshold", default=0.05)
 args = parser.parse_args()
 
-pipfile = args.pip
-true_signal_file = args.true_signal
+pvalfile = args.pval
+true_signal_fpath = args.true_signal
+out_name = args.out_name
 M = int(args.M)
-pip_th = args.th
-
-# Get basename of file from input pip file
-basename = os.path.basename(pipfile)
-basename = basename.split('.')[0]
-dirpath = os.path.dirname(pipfile)
+it = int(args.it)
+th = float(args.th)
 
 print("Input arguments:")
-print("--pip", pipfile)
-print("--true-signal", true_signal_file)
+print("--pval", pvalfile)
+print("--true-signal", true_signal_fpath)
+print("--out-name", out_name)
 print("--M", M)
-print("--th", pip_th)
+print("--it", it)
+print("--th", th)
 print("\n", flush=True)
 
-# load posterior inclusion probabilities 
-f = open(pipfile, "rb")
-buffer = f.read(M * 8)
-pip = struct.unpack(str(M)+'d', buffer)
-pip = np.array(pip)
+dirpath = os.path.dirname(pvalfile)
 
-# load true signals
-f = open(true_signal_file, "rb")
+f = open(true_signal_fpath, "rb")
 buffer = f.read(M * 8)
 beta = struct.unpack(str(M)+'d', buffer)
 beta = np.array(beta)
 
-# true pip vector. 1 where true signal is nonzero, otherwise 0
 true = np.zeros(M)
 true[np.abs(beta) > 0] = 1
 
-# get roc curve
-fpr, tpr, thresholds = roc_curve(true, pip)
-
-# plot roc
-plt.plot(fpr, tpr, label="GMRM PIP")
 plt.plot(np.array([0, 1]), np.array([0, 1]), "k--")
 plt.xlabel('False Positive Rate')
 plt.ylabel('True Positive Rate')
-plt.legend()
-plt.savefig(os.path.join(dirpath, basename+'_roc.png'))
 
-# threshold pip
+f = open(pvalfile, "rb")
+buffer = f.read(M * 8)
+pvals = struct.unpack(str(M)+'d', buffer)
+pvals = np.array(pvals)
+
+fprs, tprs, thresholds = roc_curve(true, 1 - pvals)
+area = auc(fprs, tprs)
+plt.plot(fprs, tprs, label=it)
+
+pval_th = 0.05 / M
 est = np.zeros(M)
-est[pip > pip_th] = 1
+est[pvals < pval_th] = 1
 
-# compute FDR
 tn, fp, fn, tp = confusion_matrix(true, est).ravel()
-fdr = fp / (fp + tp)
-nd = sum(pip > pip_th) # number of discoveries
+fdr = fp / (fp + tp + eps)
+tpr = tp / (tp + fn + eps)
 
-print("FDR = %0.4f" % fdr)
-print("Number of discoveries = %d" % nd, flush=True)
+plt.legend()
+
+# Save figure
+print("...saving ROC figure to file")
+print(os.path.join(dirpath, out_name+'.png'), flush=True)
+print("\n", flush=True)
+plt.savefig(os.path.join(dirpath, out_name+'.png'))
+
+print("-"*62)
+print("| %3s | %25s | %6s | %6s | %6s |" % ("It.", "Number of causal markers", "AUC", "FDR", "TPR"))
+print("-"*62)
+print("| %3d | %25d | %6.4f | %6.4f | %6.4f |" % (it, sum(pvals <= pval_th), area, fdr, tpr))
+print("-"*62)
+print("\n", flush=True)
