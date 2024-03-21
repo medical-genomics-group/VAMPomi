@@ -289,11 +289,9 @@ std::vector<double> vamp::infere_bin_class( data* dataset ){
         double alpha2_prev = alpha2;
         double alpha2 = g2d_onsager(gam2, tau2, dataset);
 
-        if (use_lmmse_damp == 1){
-            for (int i = 0; i < M; i++)
-                x2_hat[i] = rho * x2_hat[i] + (1 - rho) * x2_hat_prev[i];
-            alpha2 = rho * alpha2 + (1 - rho) * alpha2_prev;
-        }
+        //for (int i = 0; i < M; i++)
+        //    x2_hat[i] = rho * x2_hat[i] + (1 - rho) * x2_hat_prev[i];
+        //alpha2 = rho * alpha2 + (1 - rho) * alpha2_prev;
 
         // Scaling x2_hat estimates
         std::vector<double> x2_hat_s = x2_hat;

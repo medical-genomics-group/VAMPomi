@@ -93,7 +93,7 @@ private:
 
     std::vector<double> vars = std::vector<double> {0.0, 0.001};
     std::vector<double> probs = std::vector<double> {0.5, 0.5};
-    std::vector<int> test_iter_range = std::vector<int>(2, -1);
+    std::vector<int> test_iter_range = std::vector<int>{1, 10};
 
     void fail_if_last(char** argv, const int i);
     void check_options();

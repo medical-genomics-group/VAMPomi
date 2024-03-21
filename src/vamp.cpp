@@ -22,11 +22,12 @@ vamp::vamp( int N,
             double gamw, 
             int max_iter,
             int CG_max_iter,
+            double CG_err_tol,
             int EM_max_iter,
-            int prior_tune_max_iter,
-            int use_lmmse_damp,
+            double EM_err_thr,
             double rho,
             int learn_vars,
+            double stop_criteria_thr,
             std::vector<double> vars,
             std::vector<double> probs, 
             std::vector<double> true_signal, 
@@ -44,11 +45,12 @@ vamp::vamp( int N,
             gamw(gamw),
             max_iter(max_iter),
             CG_max_iter(CG_max_iter),
+            CG_err_tol(CG_err_tol),
             EM_max_iter(EM_max_iter),
-            auto_var_max_iter(prior_tune_max_iter),
-            use_lmmse_damp(use_lmmse_damp),
+            EM_err_thr(EM_err_thr),
             rho(rho),
             learn_vars(learn_vars),
+            gam1_stop_criter(stop_criteria_thr),
             vars(vars),
             probs(probs),
             true_signal(true_signal),
@@ -61,6 +63,7 @@ vamp::vamp( int N,
                 x1_hat = std::vector<double> (M, 0.0);
                 x2_hat = std::vector<double> (M, 0.0);
                 r1 = std::vector<double> (M, 0.0);
+                //r1 = simulate(M, std::vector<double> {1.0 / gam1}, std::vector<double> {1});
                 r2 = std::vector<double> (M, 0.0);
                 p1 = std::vector<double> (N, 0.0);
     
@@ -92,28 +95,29 @@ std::vector<double> vamp::infere( data* dataset ){
 // ------------ VAMP linear model ------------- 
 std::vector<double> vamp::infere_linear(data* dataset){
 
-    std::vector<double> metrics(4,0); // Error metrics from denoising and lmmse steps to save to csv [R2, x1_corr | R2, x2_corr]
+    std::vector<double> metrics(6,0); // Error metrics from denoising and lmmse steps to save to csv [R2_den, x1_corr_den | R2_lmmse, x2_corr_lmmse | corr_y_2_den, corr_y_2_lmmse]
     std::vector<double> params(5,0); // Parameters from denoising and lmmse steps to save to csv [alpha1 | gam1 | alpha2 | gam2 | gamw ]
 
     std::vector<double> x1_hat_d(M, 0.0);
     std::vector<double> x1_hat_d_prev(M, 0.0);
     std::vector<double> x1_hat_scaled(M, 0.0);
     std::vector<double> x1_hat_prev(M, 0.0);
+    std::vector<double> x2_hat_prev(M, 0.0);
 
     std::vector<double> y =  (*dataset).get_phen();
 
-    r1 = std::vector<double> (M, 0.0);   
-
-    // initializing z1_hat and p2
-    z1_hat = std::vector<double> (N, 0.0);
-    p2 = std::vector<double> (N, 0.0);
-
+    // Covariates
     std::vector< std::vector<double> > Z = (*dataset).get_covs();
+    std::vector<double> gg;
+    z1_hat = std::vector<double> (N, 0.0);
     if (C > 0){
         cov_eff = std::vector<double> (C, 0.0);
     }
 
-    std::vector<double> gg;
+    // Bernoulli distribution for trace estimation
+    std::bernoulli_distribution bern(0.5);
+    bern_vec = std::vector<double> (M, 0.0);
+
     double sqrtN = sqrt(N);
 
     // ---------------- starting VAMP iterations ----------------
@@ -154,67 +158,40 @@ std::vector<double> vamp::infere_linear(data* dataset){
         // updating parameters of prior distribution
         probs_before = probs;
         vars_before = vars;
-        
-        x1_hat_prev = x1_hat;
 
-        // keeping value of Onsager from a previous iteration
-        double alpha1_prev = alpha1;
-
-        // re-estimating the error variance
-        double gam1_reEst_prev;
-        int it_revar = 1;
-
-        for (; it_revar <= auto_var_max_iter; it_revar++){
-
-            // new signal estimate
-            for (int i = 0; i < M; i++)
-                x1_hat[i] = g1(r1[i], gam1);
-
-            std::vector<double> x1_hat_m_r1 = x1_hat;
-
-            for (int i0 = 0; i0 < x1_hat_m_r1.size(); i0++)
-                x1_hat_m_r1[i0] = x1_hat_m_r1[i0] - r1[i0];
-
-            // new MMSE estimate
-            double sum_d = 0;
-            for (int i=0; i<M; i++)
-            {
-                x1_hat_d[i] = g1d(r1[i], gam1);
-                sum_d += x1_hat_d[i];
-            }
-
-            alpha1 = 0;
-            MPI_Allreduce(&sum_d, &alpha1, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-            alpha1 /= Mt;
-            //eta1 = gam1 / alpha1;
-
-            if (it <= 1)
-                break;
-
-            gam1_reEst_prev = gam1;
-
+        if (it > 1)
             updatePrior();
 
-            if(verbosity == 1)
-                if (rank == 0 && it_revar % 1 == 0)
-                    std::cout << "[old] it_revar = " << it_revar << ": gam1 = " << gam1 << std::endl;
+        // new signal estimate
+        x1_hat_prev = x1_hat;
+        for (int i = 0; i < M; i++)
+            x1_hat[i] = g1(r1[i], gam1);
 
-            if ( abs(gam1 - gam1_reEst_prev) < 1e-3 )
-                break;
-        }
-
-        if (rank == 0)
-            std::cout << "A total of " << std::max(it_revar - 1,1) << " variance and prior tuning iterations were performed" << std::endl;
-        
         // damping 
         if (it > 1){ 
             for (int i = 0; i < M; i++)
                 x1_hat[i] = rho * x1_hat[i] + (1-rho) * x1_hat_prev[i];
-            //alpha1 = rho * alpha1 + (1 - rho) * alpha1_prev;
         }
 
+        // new MMSE estimate
+        double sum_d = 0;
+        for (int i=0; i<M; i++)
+        {
+            x1_hat_d[i] = g1d(r1[i], gam1);
+            sum_d += x1_hat_d[i];
+        }
+
+        alpha1 = 0;
+        MPI_Allreduce(&sum_d, &alpha1, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+        alpha1 /= Mt;
+
+        // Damping alpha1
+        //if(it > 1){
+        //    alpha1 = 1.0 + pow(1000.0, -alpha1);
+        //}
+
         eta1 = gam1 / alpha1;
-            
+        
         z1 = (*dataset).Ax(x1_hat.data());
 
         // saving x1_hat
@@ -227,6 +204,7 @@ std::vector<double> vamp::infere_linear(data* dataset){
         if (rank == 0)
            std::cout << "x1_hat filepath_out is " << filepath_out << std::endl;
 
+        // saving r1
         std::string filepath_out_r1 = out_dir + out_name + "_r1_it_" + std::to_string(it) + ".bin";
         std::vector<double> r1_scaled = r1;
         for (int i0=0; i0<r1_scaled.size(); i0++)
@@ -236,29 +214,22 @@ std::vector<double> vamp::infere_linear(data* dataset){
         if (rank == 0)
            std::cout << "r1_hat filepath_out is " << filepath_out_r1 << std::endl;
 
-        gam_before = gam2;
-        gam2 = std::min(std::max(eta1 - gam1, gamma_min), gamma_max);
+        double gam2_prev = gam2;
+        gam2 = eta1 - gam1;
+        gam2 = std::min(std::max(gam2, gamma_min), gamma_max);
+        //gam2 = rho * gam2; // damping
 
-        r2_prev = r2;
-
-        for (int i = 0; i < M; i++)
+        for (int i = 0; i < M; i++){
             r2[i] = (eta1 * x1_hat[i] - gam1 * r1[i]) / gam2;
-
-        if (use_lmmse_damp == 1){
-            double xi = std::min(2*rho, 1.0);
-            if (it > 1){
-                gam2 = 1.0 / pow( xi / sqrt(gam2) + (1-xi) / sqrt(gam_before), 2);
-            } 
         }
 
         // if the true value of the signal is known, we print out the true gam2
         double se_dev = 0;
         for (int i0=0; i0<M; i0++){
-            se_dev += (r2[i0] - sqrtN*true_signal[i0])*(r2[i0] - sqrtN*true_signal[i0]);
+            se_dev += (r2[i0] - sqrtN * true_signal[i0]) * (r2[i0] - sqrtN * true_signal[i0]);
         }
         double se_dev_total = 0;
         MPI_Allreduce(&se_dev, &se_dev_total, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-
         double gam2_true = Mt / se_dev_total;
 
         err_measures(dataset, 1, metrics);
@@ -283,6 +254,10 @@ std::vector<double> vamp::infere_linear(data* dataset){
         if (rank == 0)
             std::cout << "______________________" << std::endl<< "->LMMSE" << std::endl;
 
+        // Sample random Bernoulli vector for trace estimation
+        for (int i = 0; i < M; i++)
+            bern_vec[i] = (2*bern(rd) - 1) / sqrt(Mt); // Bernoulli variables are sampled independently
+
         // running conjugate gradient solver to compute LMMSE
         double start_CG = MPI_Wtime();
 
@@ -302,7 +277,14 @@ std::vector<double> vamp::infere_linear(data* dataset){
 
         if (rank == 0)
             std::cout << "CG took "  << end_CG - start_CG << " seconds." << std::endl;
+ 
+        // Damping x2_hat
 
+        //if(it > 1){
+        //    for (int i = 0; i < M; i++){
+        //        x2_hat[i] = rho * x2_hat[i] + (1-rho) * x2_hat_prev[i];
+        //    }
+        //}
 
         double start_onsager = MPI_Wtime();
 
@@ -313,19 +295,27 @@ std::vector<double> vamp::infere_linear(data* dataset){
         if (rank == 0)
             std::cout << "onsager took "  << end_onsager - start_onsager << " seconds." << std::endl;
         
+        // Damping alpha2
+
+        //if(it > 1){
+        //    alpha2 = rho * alpha2 + (1-rho) * alpha2_prev;
+        //}
+        
         eta2 = gam2 / alpha2;
 
         double gam1_prev = gam1;
-        gam1 = std::min( std::max( eta2 - gam2, gamma_min ), gamma_max );
+        gam1 = eta2 - gam2;
+        gam1 = std::min(std::max(gam1, gamma_min ), gamma_max);
         gam1 = rho * gam1 + (1 - rho) * gam1_prev; // damping
 
-        for (int i = 0; i < M; i++)
+        for (int i = 0; i < M; i++){
             r1[i] = (eta2 * x2_hat[i] - gam2 * r2[i]) / gam1;
+        }
 
         // if the true value of the signal is known, we print out the true gam1
         double se_dev1 = 0;
         for (int i0=0; i0<M; i0++)
-            se_dev1 += (r1[i0]- sqrtN*true_signal[i0])*(r1[i0]- sqrtN*true_signal[i0]);
+            se_dev1 += (r1[i0]- sqrtN * true_signal[i0]) * (r1[i0]- sqrtN * true_signal[i0]);
         double se_dev_total1 = 0;
         MPI_Allreduce(&se_dev1, &se_dev_total1, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
@@ -374,6 +364,15 @@ std::vector<double> vamp::infere_linear(data* dataset){
             std::cout << "Total computation time so far = " << total_comp_time << std::endl;
             std::cout << std::endl << std::endl;
         }
+
+        // Stoping critereia
+        if((abs(gam1 - gam1_prev) / gam1_prev) < gam1_stop_criter){
+            if (rank == 0){
+                std::cout << "Stopping criteria fulfilled " << std::endl;
+            }
+            break;
+        }
+            
     }
 
     check_mpi(MPI_File_close(&out_params_fh), __LINE__, __FILE__);
@@ -441,14 +440,6 @@ double vamp::g1d(double y, double gam1) {
 }
 
 double vamp::g2d_onsager(double gam2, double tau, data* dataset) { // shared between linear and binary classification model
-    
-    std::random_device rd;
-    std::bernoulli_distribution bern(0.5);
-
-    bern_vec = std::vector<double> (M, 0.0);
-
-    for (int i = 0; i < M; i++)
-        bern_vec[i] = (2*bern(rd) - 1) / sqrt(Mt); // Bernoulli variables are sampled independently
 
     invQ_bern_vec = precondCG_solver(bern_vec, tau, 0, dataset); // precond_change
 
@@ -597,6 +588,23 @@ void vamp::updatePrior() {
         if (verbosity == 1)
             if (rank == 0)  
                 std::cout << "Final number of prior EM iterations = " << std::min(it + 1, EM_max_iter) << " / " << EM_max_iter << std::endl;
+
+    // prior distribution parameters
+    if (rank == 0){
+        std::cout << "Prior variances = ";
+
+        for (int i = 0; i < vars.size(); i++)
+            std::cout << vars[i] / (double) N << ' ';
+
+        std::cout << std::endl;
+        
+        std::cout << "Prior probabilities = ";
+
+        for (int i = 0; i < probs.size(); i++)
+            std::cout << probs[i] << ' ';
+
+        std::cout << std::endl;
+    }
 }
 
 std::vector<double> vamp::lmmse_mult(std::vector<double> v, double tau, data* dataset){ // multiplying with (tau*A^TAv + gam2*v)
@@ -700,12 +708,11 @@ std::vector<double> vamp::precondCG_solver(std::vector<double> v, std::vector<do
         double norm_z = sqrt(l2_norm2(z, 1));
         double rel_err = sqrt( l2_norm2(r, 1) ) / norm_v;
         double norm_mu = sqrt( l2_norm2(mu, 1) );
-        double err_tol = 1e-5;
 
         if (rank == 0 && verbosity == 1)
             std::cout << "[CG] it = " << i << ": ||r_it|| / ||RHS|| = " << rel_err << ", ||x_it|| = " << norm_mu << ", ||z|| / ||RHS|| = " << norm_z /  norm_v << std::endl;
 
-        if (rel_err < err_tol) 
+        if (rel_err < CG_err_tol) 
             break;
     }
     if (denoiser == 1)
@@ -790,35 +797,22 @@ void vamp::err_measures(data *dataset, int ind, std::vector<double>& metrics){
     double l2_pred_err = sqrt(l2_norm2(tempNest, 0) / l2_norm2(y, 0));
     double R2 = 1 - l2_pred_err * l2_pred_err;
 
+    double corr_y = inner_prod(Axest, y, 1) / sqrt( l2_norm2(Axest, 1) * l2_norm2(y, 1) );
+    double corr_y_2 = corr_y * corr_y;
+
     if(ind == 1){
         metrics[0] = R2;
+        metrics[4] = corr_y_2;
     }
     else if (ind == 2){
         metrics[2] = R2;
+        metrics[5] = corr_y_2;
     }
 
     if (rank == 0){
+        std::cout << "Corr(y_hat, y)^2 = " << corr_y_2 << std::endl;
         std::cout << "R2 = " << R2 << std::endl;
         std::cout << "L2(y_hat, y) = " << l2_pred_err << std::endl;
-    }
-    
-    // prior distribution parameters
-    if (rank == 0){
-        std::cout << "Prior variances = ";
-
-        for (int i = 0; i < vars.size(); i++)
-            std::cout << vars[i] / (double) N << ' ';
-
-        std::cout << std::endl;
-        
-        std::cout << "Prior probabilities = ";
-
-        for (int i = 0; i < probs.size(); i++)
-            std::cout << probs[i] << ' ';
-
-        std::cout << std::endl;
-        
-        //std::cout << "gamw = " << gamw << std::endl;
     }
 }
 
