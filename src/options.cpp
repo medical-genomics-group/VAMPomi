@@ -78,6 +78,7 @@ void Options::read_command_line_options(int argc, char** argv) {
             ss << "--vars " << cslist << "\n";
             std::stringstream sslist(cslist);
             std::string value;
+            vars.clear();
             while (getline(sslist, value, ',')) {
                 vars.push_back(atof(value.c_str()));
             }
@@ -88,6 +89,7 @@ void Options::read_command_line_options(int argc, char** argv) {
             ss << "--probs " << cslist << "\n";
             std::stringstream sslist(cslist);
             std::string value;
+            probs.clear();
             while (getline(sslist, value, ',')) {
                 probs.push_back(atof(value.c_str()));
             }
@@ -109,15 +111,7 @@ void Options::read_command_line_options(int argc, char** argv) {
             verbosity = atoi(argv[++i]);
             ss << "--verbosity " << verbosity << "\n";
         } 
-        else if (!strcmp(argv[i], "--use-lmmse-damp")) {
-            if (i == argc - 1) fail_if_last(argv, i);
-            if (atoi(argv[i + 1]) < 0) {
-                std::cout << "FATAL  : option --use-lmmse-damp has to be a non-negative integer! (" << argv[i + 1] << " was passed)" << std::endl;
-                exit(EXIT_FAILURE);
-            }
-            use_lmmse_damp = (unsigned int) atoi(argv[++i]);
-            ss << "--use-lmmse-damp " << use_lmmse_damp << "\n";
-        }
+
         else if (!strcmp(argv[i], "--learn-vars")) {
             if (i == argc - 1) fail_if_last(argv, i);
             if (atoi(argv[i + 1]) < 0) {
@@ -202,15 +196,8 @@ void Options::read_command_line_options(int argc, char** argv) {
             }
             EM_max_iter = (unsigned int) atoi(argv[++i]);
             ss << "--EM-max-iter " << EM_max_iter << "\n";
-        } else if (!strcmp(argv[i], "--prior-tune-max-iter")){ // strcmp return 0 if both strings are identical
-            if (i == argc - 1) fail_if_last(argv, i);
-            if (atoi(argv[i + 1]) < 1) {
-                std::cout << "FATAL  : option --prior-tune-max-iter has to be a strictly positive integer! (" << argv[i + 1] << " was passed)" << std::endl;
-                exit(EXIT_FAILURE);
-            }
-            prior_tune_max_iter = (unsigned int) atoi(argv[++i]);
-            ss << "--prior-tune-max-iter " << prior_tune_max_iter << "\n";
-        } else if (!strcmp(argv[i], "--Mt")){ // strcmp return 0 if both strings are identical
+        } 
+        else if (!strcmp(argv[i], "--Mt")){ // strcmp return 0 if both strings are identical
             if (i == argc - 1) fail_if_last(argv, i);
             if (atoi(argv[i + 1]) < 1) {
                 std::cout << "FATAL  : option --Mt has to be a strictly positive integer! (" << argv[i + 1] << " was passed)" << std::endl;
@@ -263,6 +250,11 @@ void Options::read_command_line_options(int argc, char** argv) {
             }
             CG_max_iter = (unsigned int) atoi(argv[++i]);
             ss << "--CG-max-iter " << CG_max_iter << "\n";
+        }
+        else if (!strcmp(argv[i], "--CG-err-tol")){ // strcmp return 0 if both strings are identical
+            if (i == argc - 1) fail_if_last(argv, i);
+            CG_err_tol = atof(argv[++i]);
+            ss << "--CG-err-tol " << CG_err_tol << "\n";
         }
         else {
             std::cout << "FATAL: option \"" << argv[i] << "\" unknown\n";

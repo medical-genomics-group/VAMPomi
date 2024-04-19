@@ -36,21 +36,21 @@ private:
     int EM_max_iter = 100;
     double EM_err_thr = 1e-2;
     int CG_max_iter = 100;
-    int auto_var_max_iter = 50;
+    double CG_err_tol = 1e-5;
     int learn_vars = 0;
     double damp_max = 1;
     double damp_min = 0.05;
-    double stop_criteria_thr = 1e-5;
-
+    double gam1_stop_criter = 0.0;
+    
     std::string model;
     std::string out_dir;
     std::string out_name;
-    
+
+    std::random_device rd; // random device for sampling
     std::vector<double> bern_vec;
     std::vector<double> invQ_bern_vec;
 
     double total_comp_time = 0;
-    int use_lmmse_damp = 0;
 
     int verbosity = 0;
 
@@ -68,11 +68,12 @@ public:
             double gamw, 
             int max_iter,
             int CG_max_iter,
+            double CG_err_tol,
             int EM_max_iter,
-            int prior_tune_max_iter,
-            int use_lmmse_damp,
+            double EM_err_thr,
             double rho,
             int learn_vars,
+            double stop_criteria_thr,
             std::vector<double> vars,
             std::vector<double> probs, 
             std::vector<double> true_signal, 
@@ -93,7 +94,7 @@ public:
     double g1d(double x, double gam1);
     double g1d_bin_class(double p, double tau1, double y, double m_cov);
     double g2d_onsager(double gam2, double tau, data* dataset);
-    double g2d_onsagerAAT(double gam2, double tau, data* dataset);
+
 
     // HYPERPARAMETERS UPDATE
     void updatePrior();
@@ -101,10 +102,7 @@ public:
     void updateNoisePrecAAT(data* dataset);
 
     std::vector<double> lmmse_mult(std::vector<double> v, double tau, data* dataset);
-    std::vector<double> lmmse_multAAT(std::vector<double> u, double tau, data* dataset);
-    std::vector<double> lmmse_denoiserAAT(std::vector<double> r, std::vector<double> mu_CG_AAT_last, data* dataset);
 
-    std::vector<double> CG_solverAAT(std::vector<double> v, std::vector<double> mu_start, double tau, int save, data* dataset);
     std::vector<double> precondCG_solver(std::vector<double> v, double tau, int denoiser, data* dataset);
     std::vector<double> precondCG_solver(std::vector<double> v, std::vector<double> mu_start, double tau, int denoiser, data* dataset);    
 

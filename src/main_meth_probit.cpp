@@ -52,10 +52,11 @@ int main(int argc, char** argv)
         
         int max_iter = opt.get_iterations();
         int learn_vars = opt.get_learn_vars();
+        double stop_criteria_thr = opt.get_stop_criteria_thr();
         int CG_max_iter = opt.get_CG_max_iter();
+        double CG_err_tol = opt.get_CG_err_tol();
         int EM_max_iter = opt.get_EM_max_iter();
-        int prior_tune_max_iter = opt.get_prior_tune_max_iter();
-        int use_lmmse_damp = opt.get_use_lmmse_damp();
+        double EM_err_thr = opt.get_EM_err_thr();
         double rho = opt.get_rho();
         std::vector<double> vars = opt.get_vars();
         std::vector<double> probs = opt.get_probs();
@@ -77,11 +78,12 @@ int main(int argc, char** argv)
                     gamw,
                     max_iter, 
                     CG_max_iter,
+                    CG_err_tol,
                     EM_max_iter,
-                    prior_tune_max_iter,
-                    use_lmmse_damp,
+                    EM_err_thr,
                     rho,
                     learn_vars,
+                    stop_criteria_thr,
                     vars,
                     probs,
                     true_signal,

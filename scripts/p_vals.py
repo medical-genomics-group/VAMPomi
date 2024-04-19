@@ -54,7 +54,6 @@ r1_binfile = open(r1_fpath, "rb")
 buffer = r1_binfile.read(Mt*8)
 r1 = struct.unpack(str(Mt)+'d', buffer)
 
-# ----------- Calculating p values -------------- #
 pvals = np.zeros(Mt)
 for i in range(Mt):
     pvals[i] = norm.cdf(x=0, loc=r1[i], scale=np.sqrt(1 / (gam1[it-1] * N)))

@@ -39,13 +39,16 @@ dirpath = os.path.dirname(csv_metrics_fpath)
 csv_test_file = open(csv_test_fpath, newline='', encoding='utf-8')
 csv_test_reader = csv.reader((row.replace('\0', '') for row in csv_test_file), delimiter=',')
 r2_test = []
+corr2_test = []
 
 for row in csv_test_reader:
     # test output csv file structure: 
-    #| iteration | R2 |
+    #| iteration | R2 | Corr2 |
     r2_test.append(float(row[1]))
+    corr2_test.append(float(row[2]))
 
 r2_test = np.array(r2_test)
+corr2_test = np.array(corr2_test)
 
 # ----------- Reading _metrics.csv file ----------- #
 
@@ -100,19 +103,19 @@ x = np.arange(1, it+1, 1) # x-axis (start,stop,step)
 
 fig.suptitle(base)
 
-ax[0].plot(x,r2_denoising[:it], color=color, linestyle='--', label="Denoising")
-ax[0].plot(x,r2_lmmse[:it], color=color, linestyle=':', label="LMMSE")
-ax[0].plot(x,r2_test[:it], color=color, linestyle='-',label="Test")
+ax[0].plot(x,r2_denoising[:it], color=color, linestyle='--', marker=".", label="Denoising")
+ax[0].plot(x,r2_lmmse[:it], color=color, linestyle=':', marker=".", label="LMMSE")
+ax[0].plot(x,r2_test[:it], color=color, linestyle='-', marker=".", label="Test")
 ax[0].xaxis.set_ticks(x)
 ax[0].set_ylim([0,1])
 ax[0].set_ylabel("R2")
 ax[0].legend()
 
-ax[1].plot(x,gamw[:it], color=color, label="gamw")
+ax[1].plot(x,gamw[:it], color=color, marker=".", label="gamw")
 ax[1].xaxis.set_ticks(x)
 ax[1].set_ylabel("gamw")
 
-ax[2].plot(x,gam1[:it], color=color, label="gam1")
+ax[2].plot(x,gam1[:it], color=color, marker=".", label="gam1")
 ax[2].xaxis.set_ticks(x)
 ax[2].set_xlabel("Iteration")
 ax[2].set_ylabel("gam1")
@@ -126,9 +129,12 @@ print("\n", flush=True)
 h2 = 1 - (1 / gamw[it-1])
 
 print("...Printing final results")
-print("-"*110)
-print("| %10s | %13s | %13s | %13s | %13s | %13s | %13s |" % ("Iteration", "R2_test", "R2_denoising", "R2_lmmse", "gam1", "gamw", "h2"))
-print("-"*110)
-print("| %10d | %13.4f | %13.4f | %13.4f | %13.4f | %13.4f | %13.4f |" % (it, r2_test[it-1], r2_lmmse[it-1], r2_lmmse[it-1], gam1[it-1], gamw[it-1], h2), flush=True)
-print("-"*110)
+header = "| %10s | %13s | %13s | %13s | %13s | %13s | %13s | %13s |" % ("Iteration", "R2_test", "Corr2_test", "R2_denoising", "R2_lmmse", "gam1", "gamw", "h2")
+line = "-"*len(header)
+row = "| %10d | %13.4f | %13.4f | %13.4f | %13.4f | %13.4f | %13.4f | %13.4f |" % (it, r2_test[it-1], corr2_test[it-1], r2_denoising[it-1], r2_lmmse[it-1], gam1[it-1], gamw[it-1], h2)
+print(line)
+print(header)
+print(line)
+print(row)
+print(line)
 print("\n", flush=True)
