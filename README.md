@@ -1,5 +1,5 @@
-# VAMPomi
-VAMPomi is Vector Approximate Message Passing method for analyzing omics data, written in C++ (source code in src/).
+# gVAMPomi
+gVAMPomi is Vector Approximate Message Passing method for analyzing omics data, written in C++ (source code in src/).
 
 This repository also contains scripts for data simulations and post-processing on methylation data.
 
@@ -23,7 +23,7 @@ Assuming standard HPC environment, we can compile the software using mpic++. Pat
 ```
 module load gcc openmpi boost
 
-vloc={Path to VAMPomi/src folder}
+vloc={Path to gVAMPomi/src folder}
 
 mpic++ ${vloc}/main_meth.cpp ${vloc}/vamp.cpp ${vloc}/utilities.cpp ${vloc}/data.cpp ${vloc}/options.cpp -march=native -Ofast -g -fopenmp -lstdc++fs -D_GLIBCXX_DEBUG -o  ${vloc}/main_meth.exe
 ```
@@ -57,7 +57,7 @@ Output files:
 - ``example_r1_it_{iteration}.bin`` binary files containing noise corrupted signal estimates from denoising step r1 in current iteration.
 
 ### Testing
-If test subset is available, running VAMPomi for out-of-sample testing requires at least:
+If test subset is available, running gVAMPomi for out-of-sample testing requires at least:
 
 ```
 export OMP_NUM_THREADS={Number of OpenMP threads}
@@ -94,8 +94,9 @@ Output file:
 
 | Option | Description | Default |
 | --- | --- | --- |
-| `--run-mode` | `infere` / `test` | `infere` |
+| `--run-mode` | `infere` / `test` / `association_test` | `infere` |
 | `--model` | Regression model `linear` / `bin_class` | `linear` |
+| `--pval_method` | Method used for calculating P values in association testing `se` (State Evolution) / `loo` (Leave-One-Out) | `se` |
 | `--meth-file` | Path to .bin file including the data in binary format | |
 | `--meth-file-test` | Path to .bin file for testing | |
 | `--phen-file` | Path to file containing phenotype data | |
@@ -123,3 +124,49 @@ Output file:
 | `--EM-max-iter` | Maximal number of iterations of expectation maximization | 1 |
 | `--stop-criteria-thr` | Relative error threshold within expectation maximization | 0 |
 | `--verbosity` | Whether or not to print out details | 0 |
+
+
+# Initialization from Gibbs sampler
+Efficient implementation of Gibbs sampler for multi-omics data, GMRMomi, can be used for initializing gVAMPomi algorithm using very first samples from MCMC posterior trace.
+
+Example:
+1. Run GMRMomi, as in https://github.com/medical-genomics-group/gmrm-omi
+2. Run ``conf_gibbs_init.py`` to create .conf configuration file for gVAMPomi initialization.
+```
+python3 conf_gibbs_init.py  --csv example.csv \
+                            --grm example.grm \
+                            --out-dir output/directory/ \
+                            --iterations 100:200 \
+                            --rho 0.5
+```
+3. Access the configuration and run gVAMPomi
+```
+# If more than one configuration in the file, use different IDs
+id=0
+
+# Configuration file path
+conf=example.conf
+
+# Accessing the values in .conf file
+rho=$(awk -v ID=$id '$1==ID {print $2}' $conf)
+L=$(awk -v ID=$id '$1==ID {print $3}' $conf)
+probs=$(awk -v ID=$id '$1==ID {print $5}' $conf)
+vars=$(awk -v ID=$id '$1==ID {print $6}' $conf)
+h2=$(awk -v ID=$id '$1==ID {print $7}' $conf)
+
+# Running gVAMPomi
+export OMP_NUM_THREADS={Number of OpenMP threads}
+
+mpirun -np {Number of MPI ranks} ${vloc}/main_meth.exe \                      
+                                --meth-file example.bin \
+                                --phen-file example.phen \
+                                --N 1000 \
+                                --Mt 2000 \
+                                --out-dir output/ \
+                                --out-name example \
+                                --num-mix-comp $L \
+                                --probs $probs \
+                                --vars $vars \
+                                --rho $rho \
+                                --h2 $h2
+```
