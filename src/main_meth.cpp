@@ -4,6 +4,7 @@
 #include "utilities.hpp"
 #include "data.hpp"
 #include "vamp.hpp"
+#include <boost/math/distributions/normal.hpp>
 
 int main(int argc, char** argv)
 {
@@ -183,50 +184,65 @@ int main(int argc, char** argv)
 
         
     }
-    else if (opt.get_run_mode() == "predict"){
+    else if (opt.get_run_mode() == "association_test"){
 
-        std::string phenfp = opt.get_phen_file();
+        // Get command line options
+        std::string phenfp = opt.get_phen_file(); // Phenotype file
+        std::string mrkfp = opt.get_meth_file();
         double alpha_scale = opt.get_alpha_scale();
 
-        data dataset(phenfp, opt.get_meth_file(), model, N, M, Mt, S, rank, alpha_scale);
+        // Reading data set
+        data dataset(phenfp, mrkfp, model, N , M, Mt, S, rank, alpha_scale);
         
-        std::vector<double> y = dataset.get_phen();
-
-        std::vector<double> beta_true;
-        if(opt.get_true_signal_file() != "" )
-            beta_true = read_vec_from_file(opt.get_true_signal_file(), M, S);
-
+        // parse estimate file name
         std::string est_file_name = opt.get_estimate_file();
-
+        int pos1 = est_file_name.rfind("it_") + 3;
+        int pos2 = est_file_name.rfind(".bin");
         if (rank == 0)
-            std::cout << "est_file_name = " << est_file_name << std::endl;
+            std::cout << pos1 << ", " << pos2 << std::endl;
 
-        std::vector<double> x_est;
-        x_est = mpi_read_vec_from_file(est_file_name, M, S);
+        std::string it_str = est_file_name.substr(pos1, pos2 - pos1);
+        if (rank == 0)
+            std::cout << it_str << std::endl;
+        int it = std::stoi(it_str);
+        if (rank == 0)
+            std::cout << it << std::endl;
+        std::vector<double> x1_hat = mpi_read_vec_from_file(est_file_name, M, S);
+        // normalization of estimates
+        for (int i0 = 0; i0 < x1_hat.size(); i0++)
+            x1_hat[i0] *= sqrt( (double) N );
 
-        for (int i0 = 0; i0 < x_est.size(); i0++){
-            x_est[i0] *= sqrt( (double) N );
-            beta_true[i0] *= sqrt( (double) N );
-        }
-                
-        std::vector<double> z = dataset.Ax(x_est.data());
-
-        double l2_pred_err2 = 0;
-        for (int i0 = 0; i0 < N; i0++){
-            l2_pred_err2 += (y[i0] - z[i0]) * (y[i0] - z[i0]);
-        }  
-
-        double stdev = calc_stdev(y);
-        if (rank == 0){
-            std::cout << "R2 = " << 1 - l2_pred_err2 / ( stdev * stdev * y.size() ) << std::endl;
-        }
+        // Read r vector
+        std::string r1_file_name = est_file_name.substr(0, est_file_name.rfind("_it")) + "_r1_it_" + it_str + ".bin";
+        if (rank == 0)
+            std::cout << r1_file_name << std::endl;
+        std::vector<double> r1 = mpi_read_vec_from_file(r1_file_name, M, S);
         
-        // Saving predictions
-        std::string filepath_out_z = opt.get_out_dir() + opt.get_out_name() + "_z.yest";
-        store_vec_to_file(filepath_out_z, z);
-        if (rank == 0)
-            std::cout << "prediction filepath is " << filepath_out_z << std::endl;
+        std::string pval_method = opt.get_pval_method();
+        std::vector<double> pvals(M, 0.0);
+        std::string filepath_out;
+
+        if(pval_method == "se"){ // TODO: SE option not tested
+            for(int j=0; j < M; j++){
+                boost::math::normal norm(0.0, 1.0);
+                double pval = boost::math::cdf(norm, 0);
+                pvals[j] = pval;
+            }
+            filepath_out = out_dir + out_name + "_it_" + it_str + "_pval_se.bin";
+            if (rank == 0)
+                std::cout << "Storing p-values to file " + filepath_out << std::endl;
+            mpi_store_vec_to_file(filepath_out, pvals, S, M);
         }
+        else if(pval_method == "loo"){
+            std::vector<double> z1 = dataset.Ax(x1_hat.data());
+            std::vector<double> y = dataset.get_phen();
+            std::vector<double> pvals = dataset.pvals_loo(z1, y, x1_hat);
+            filepath_out = out_dir + out_name + "_it_" + it_str + "_pval_loo.bin";
+            if (rank == 0)
+                std::cout << "Storing p-values to file " + filepath_out << std::endl;
+            mpi_store_vec_to_file(filepath_out, pvals, S, M);
+        }
+    }
 
     MPI_Barrier(MPI_COMM_WORLD);
     MPI_Finalize();

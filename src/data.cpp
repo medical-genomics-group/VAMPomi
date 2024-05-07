@@ -381,3 +381,37 @@ std::vector<double> data::Zx(std::vector<double> phen){
 
     return Zx_temp;
 }
+
+std::vector<double> data::pvals_loo(std::vector<double> z1, std::vector<double> y, std::vector<double> x1_hat){
+    
+    std::vector<double> pvals(M,0.0);
+    std::vector<double> y_mod(N, 0.0); // phenotypic values corrected for genetic predictors
+
+    for (int i=0; i<N; i++)
+        y_mod[i] = y[i] - z1[i];
+
+    double* mave = get_mave();
+    double* msig = get_msig();
+
+    for (int j=0; j<M; j++){
+
+        std::vector<double> y_mark = y_mod;
+                
+        size_t methix = size_t(j) * size_t(N);
+        const double* meth = &meth_data[methix];
+        double sumx = 0.0, sumsqx = 0.0, sumxy = 0.0, sumy = 0.0, sumsqy = 0.0; 
+  
+        for (int i=0; i<N; i++) 
+            y_mark[i] += meth[i] / sqrt(N) * x1_hat[j];
+
+        for (int i=0; i<N; i++) {
+            sumx += meth[i];
+            sumsqx += meth[i]*meth[i];
+            sumxy += meth[i]*y_mark[i];
+            sumy += y_mark[i];
+            sumsqy += y_mark[i] * y_mark[i];
+        }
+        pvals[j] = linear_reg1d_pvals(sumx, sumsqx, sumxy, sumy, sumsqy, N);
+    }
+    return pvals;
+}

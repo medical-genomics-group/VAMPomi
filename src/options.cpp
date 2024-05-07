@@ -255,6 +255,10 @@ void Options::read_command_line_options(int argc, char** argv) {
             if (i == argc - 1) fail_if_last(argv, i);
             CG_err_tol = atof(argv[++i]);
             ss << "--CG-err-tol " << CG_err_tol << "\n";
+        } else if (!strcmp(argv[i], "--pval-method")) {
+            if (i == argc - 1) fail_if_last(argv, i);
+            pval_method = argv[++i];
+            ss << "--pval-method " << pval_method << "\n";
         }
         else {
             std::cout << "FATAL: option \"" << argv[i] << "\" unknown\n";

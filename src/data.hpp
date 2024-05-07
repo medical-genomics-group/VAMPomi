@@ -85,6 +85,9 @@ public:
     std::vector<double> ATx(double* __restrict__ phen);
     double dot_product(const int mloc, double* __restrict__ phen, const double mu, const double sigma_inv);
     std::vector<double> Zx(std::vector<double> phen);
+
+    std::vector<double> pvals_loo(std::vector<double> z1, std::vector<double> y, std::vector<double> x1_hat);
+
     
 };
 

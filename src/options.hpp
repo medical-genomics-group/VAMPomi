@@ -27,6 +27,7 @@ public:
     std::string get_out_name() const { return out_name; }
     std::string get_model() const { return model; }
     std::string get_run_mode() const { return run_mode; }
+    std::string get_pval_method() const { return pval_method; }
 
     double get_stop_criteria_thr() const { return stop_criteria_thr; }
     double get_EM_err_thr() const { return EM_err_thr; }
@@ -69,6 +70,7 @@ private:
     std::string out_dir = "";
     std::string out_name = "";
     std::string model = "linear";
+    std::string pval_method = "se";
 
     double stop_criteria_thr = 0.0;
     double EM_err_thr = 1e-2;
