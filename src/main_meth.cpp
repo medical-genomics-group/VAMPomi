@@ -126,6 +126,12 @@ int main(int argc, char** argv)
                             MPI_INFO_NULL,
                             &outcsv_test_fh),
                             __LINE__, __FILE__);
+        // Headers for output files
+        std::vector<std::string> test_header{"iteration", 
+                                            "R2 test", 
+                                            "z correlation test"};
+        if(rank == 0)
+            write_ofile_csv_header(outcsv_test_fh, &test_header);
 
         // parse estimate file name
         std::string est_file_name = opt.get_estimate_file();
@@ -194,38 +200,28 @@ int main(int argc, char** argv)
         // Reading data set
         data dataset(phenfp, mrkfp, model, N , M, Mt, S, rank, alpha_scale);
         
-        // parse estimate file name
-        std::string est_file_name = opt.get_estimate_file();
-        int pos1 = est_file_name.rfind("it_") + 3;
-        int pos2 = est_file_name.rfind(".bin");
-        if (rank == 0)
-            std::cout << pos1 << ", " << pos2 << std::endl;
-
-        std::string it_str = est_file_name.substr(pos1, pos2 - pos1);
-        if (rank == 0)
-            std::cout << it_str << std::endl;
-        int it = std::stoi(it_str);
-        if (rank == 0)
-            std::cout << it << std::endl;
-        std::vector<double> x1_hat = mpi_read_vec_from_file(est_file_name, M, S);
-        // normalization of estimates
-        for (int i0 = 0; i0 < x1_hat.size(); i0++)
-            x1_hat[i0] *= sqrt( (double) N );
-
-        // Read r vector
-        std::string r1_file_name = est_file_name.substr(0, est_file_name.rfind("_it")) + "_r1_it_" + it_str + ".bin";
-        if (rank == 0)
-            std::cout << r1_file_name << std::endl;
-        std::vector<double> r1 = mpi_read_vec_from_file(r1_file_name, M, S);
-        
         std::string pval_method = opt.get_pval_method();
         std::vector<double> pvals(M, 0.0);
         std::string filepath_out;
 
         if(pval_method == "se"){ // TODO: SE option not tested
+            // Read r vector
+            std::string r1_file_name = opt.get_r1_file();
+            int pos1 = r1_file_name.rfind("it_") + 3;
+            int pos2 = r1_file_name.rfind(".bin");
+            std::string it_str = r1_file_name.substr(pos1, pos2 - pos1);
+            int it = std::stoi(it_str);
+            if (rank == 0)
+                std::cout << r1_file_name << std::endl;
+            std::vector<double> r1 = mpi_read_vec_from_file(r1_file_name, M, S);
+
+            double gam1 = opt.get_gam1(); // Signal noise precision
+
             for(int j=0; j < M; j++){
-                boost::math::normal norm(0.0, 1.0);
+                boost::math::normal norm(r1[j], sqrt(1.0 / (gam1 * (double) N )));
                 double pval = boost::math::cdf(norm, 0);
+                if(r1[j] <= 0.0)
+                    pval = 1 - pval; 
                 pvals[j] = pval;
             }
             filepath_out = out_dir + out_name + "_it_" + it_str + "_pval_se.bin";
@@ -234,6 +230,17 @@ int main(int argc, char** argv)
             mpi_store_vec_to_file(filepath_out, pvals, S, M);
         }
         else if(pval_method == "loo"){
+            // parse estimate file name
+            std::string est_file_name = opt.get_estimate_file();
+            int pos1 = est_file_name.rfind("it_") + 3;
+            int pos2 = est_file_name.rfind(".bin");
+            std::string it_str = est_file_name.substr(pos1, pos2 - pos1);
+            int it = std::stoi(it_str);
+            std::vector<double> x1_hat = mpi_read_vec_from_file(est_file_name, M, S);
+            // normalization of estimates
+            for (int i0 = 0; i0 < x1_hat.size(); i0++)
+                x1_hat[i0] *= sqrt( (double) N );
+
             std::vector<double> z1 = dataset.Ax(x1_hat.data());
             std::vector<double> y = dataset.get_phen();
             std::vector<double> pvals = dataset.pvals_loo(z1, y, x1_hat);

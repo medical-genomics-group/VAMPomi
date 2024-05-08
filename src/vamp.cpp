@@ -97,6 +97,16 @@ std::vector<double> vamp::infere_linear(data* dataset){
 
     std::vector<double> metrics(6,0); // Error metrics from denoising and lmmse steps to save to csv [R2_den, x1_corr_den | R2_lmmse, x2_corr_lmmse | corr_y_2_den, corr_y_2_lmmse]
     std::vector<double> params(5,0); // Parameters from denoising and lmmse steps to save to csv [alpha1 | gam1 | alpha2 | gam2 | gamw ]
+       
+    for(int i=0; i < probs.size(); i++)
+        prior_header.push_back("prob" + std::to_string(i));
+    for(int i=0; i < vars.size(); i++)
+        prior_header.push_back("var" + std::to_string(i));
+    if(rank == 0){
+        write_ofile_csv_header(out_metrics_fh, &metrics_header);
+        write_ofile_csv_header(out_params_fh, &params_header);
+        write_ofile_csv_header(out_prior_fh, &prior_header);
+    }
 
     std::vector<double> x1_hat_d(M, 0.0);
     std::vector<double> x1_hat_d_prev(M, 0.0);

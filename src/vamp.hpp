@@ -58,6 +58,24 @@ private:
     MPI_File out_metrics_fh;
     MPI_File out_prior_fh;
 
+    // Headers for output files
+    std::vector<std::string> metrics_header{"iteration", 
+                                            "R2 denoising", 
+                                            "x1 correlation denoising", 
+                                            "R2 LMMSE", 
+                                            "x2 correlation LMMSE", 
+                                            "z1 correlation denoising", 
+                                            "z2 correlation LMMSE"};
+
+    std::vector<std::string> params_header{"iteration", 
+                                            "alpha1", 
+                                            "gam1", 
+                                            "alpha2", 
+                                            "gam2", 
+                                            "gamw"};
+
+    std::vector<std::string> prior_header{"iteration", "number of components"}; // rest of the header is specified in io_setup();
+
 public:
     // ---------- CONSTRUCTOR -----------
     vamp( int N,

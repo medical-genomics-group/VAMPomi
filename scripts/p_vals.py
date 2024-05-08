@@ -39,6 +39,7 @@ csv_dirpath = os.path.dirname(csv_params_fpath)
 # ----------- Reading _params.csv file ----------- #
 csv_params_file = open(csv_params_fpath, newline='', encoding='utf-8')
 csv_params_reader = csv.reader((row.replace('\0', '') for row in csv_params_file), delimiter=',')
+next(csv_params_reader, None) # Skip header
 
 gam1 = []
 for row in csv_params_reader:

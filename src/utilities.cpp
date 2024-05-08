@@ -6,6 +6,8 @@
 #include <cmath>
 #include "utilities.hpp"
 #include<boost/math/distributions/students_t.hpp>
+//#include <format>
+//#include <string>
 
 double round_dp(const double in) {
     return in;
@@ -358,10 +360,9 @@ double erfcx (double x)
 void write_ofile_csv(const MPI_File fh, const uint iteration, const std::vector<double>* params) {
 
     MPI_Status status;
-    const unsigned n_saved = iteration - 1;
+    const unsigned n_saved = iteration;
     
     char buff[LENBUF];
-
     int cx = snprintf(buff, LENBUF, "%5d", iteration);
     assert(cx >= 0 && cx < LENBUF);
         
@@ -375,4 +376,20 @@ void write_ofile_csv(const MPI_File fh, const uint iteration, const std::vector<
         
     MPI_Offset offset = size_t(n_saved) * strlen(buff);
     check_mpi(MPI_File_write_at(fh, offset, &buff, strlen(buff), MPI_CHAR, &status), __LINE__, __FILE__);
+}
+
+// Write header
+void write_ofile_csv_header(const MPI_File fh, const std::vector<std::string>* header) {
+
+    MPI_Status status;
+    std::string str = header->at(0);
+    for(int i=1; i < header->size(); i++){   
+        str = str + ", " + header->at(i);
+    }
+    str = str + "\n";
+
+    char buff[str.length() + 1];
+    int cx = snprintf(&buff[0], str.length() + 1, str.c_str());
+        
+    check_mpi(MPI_File_write_at(fh, 0, &buff, strlen(buff), MPI_CHAR, &status), __LINE__, __FILE__);
 }

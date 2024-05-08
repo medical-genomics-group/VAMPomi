@@ -19,6 +19,7 @@ public:
     std::string get_phen_file_test() const { return phen_file_test; }
     std::string get_true_signal_file() const { return true_signal_file; }
     std::string get_estimate_file() const { return estimate_file; }
+    std::string get_r1_file() const { return r1_file; }
     std::string get_cov_estimate_file() const { return cov_estimate_file; }
     std::string get_cov_file() const { return cov_file; }
     std::string get_cov_file_test() const { return cov_file_test; }
@@ -63,6 +64,7 @@ private:
     std::string phen_file_test;
     std::string true_signal_file;
     std::string estimate_file = "";
+    std::string r1_file = "";
     std::string cov_estimate_file = "";
     std::string cov_file = "";
     std::string cov_file_test = "";

@@ -50,6 +50,8 @@ int sgn(double val);
 
 void write_ofile_csv(const MPI_File fh, const uint iteration, const std::vector<double>* params);
 
+void write_ofile_csv_header(const MPI_File fh, const std::vector<std::string>* header);
+
 const size_t LENBUF = 50000;
 
 //EO: this to allow reduction on avx256 pd4 datatype with OpenMP
