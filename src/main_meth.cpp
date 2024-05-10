@@ -224,7 +224,7 @@ int main(int argc, char** argv)
                     pval = 1 - pval; 
                 pvals[j] = pval;
             }
-            filepath_out = out_dir + out_name + "_it_" + it_str + "_pval_se.bin";
+            filepath_out = out_dir + "/" + out_name + "_it_" + it_str + "_pval_se.bin";
             if (rank == 0)
                 std::cout << "Storing p-values to file " + filepath_out << std::endl;
             mpi_store_vec_to_file(filepath_out, pvals, S, M);
@@ -244,7 +244,7 @@ int main(int argc, char** argv)
             std::vector<double> z1 = dataset.Ax(x1_hat.data());
             std::vector<double> y = dataset.get_phen();
             std::vector<double> pvals = dataset.pvals_loo(z1, y, x1_hat);
-            filepath_out = out_dir + out_name + "_it_" + it_str + "_pval_loo.bin";
+            filepath_out = out_dir + "/" + out_name + "_it_" + it_str + "_pval_loo.bin";
             if (rank == 0)
                 std::cout << "Storing p-values to file " + filepath_out << std::endl;
             mpi_store_vec_to_file(filepath_out, pvals, S, M);

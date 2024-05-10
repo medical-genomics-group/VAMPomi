@@ -12,6 +12,7 @@
 #include "data.hpp"
 #include "vamp_probit.cpp"
 #include "utilities.hpp"
+#include <cstring>
 
 // VAMP constructor 
 vamp::vamp( int N,
@@ -205,7 +206,7 @@ std::vector<double> vamp::infere_linear(data* dataset){
         z1 = (*dataset).Ax(x1_hat.data());
 
         // saving x1_hat
-        std::string filepath_out = out_dir + out_name + "_it_" + std::to_string(it) + ".bin";
+        std::string filepath_out = out_dir + "/" + out_name + "_it_" + std::to_string(it) + ".bin";
         int S = (*dataset).get_S();
         for (int i0=0; i0<x1_hat_scaled.size(); i0++)
             x1_hat_scaled[i0] =  x1_hat[i0] / sqrtN;
@@ -215,7 +216,7 @@ std::vector<double> vamp::infere_linear(data* dataset){
            std::cout << "x1_hat filepath_out is " << filepath_out << std::endl;
 
         // saving r1
-        std::string filepath_out_r1 = out_dir + out_name + "_r1_it_" + std::to_string(it) + ".bin";
+        std::string filepath_out_r1 = out_dir + "/" + out_name + "_r1_it_" + std::to_string(it) + ".bin";
         std::vector<double> r1_scaled = r1;
         for (int i0=0; i0<r1_scaled.size(); i0++)
             r1_scaled[i0] =  r1[i0] / sqrtN;
