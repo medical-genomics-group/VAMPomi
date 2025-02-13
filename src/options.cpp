@@ -164,6 +164,11 @@ void Options::read_command_line_options(int argc, char** argv) {
             stop_criteria_thr = atof(argv[++i]);
             ss << "--stop-criteria-thr " << stop_criteria_thr << "\n";
         }
+        else if (!strcmp(argv[i], "--merge-vars-thr")){ // strcmp return 0 if both strings are identical
+            if (i == argc - 1) fail_if_last(argv, i);
+            merge_vars_thr = atof(argv[++i]);
+            ss << "--merge-vars-thr " << merge_vars_thr << "\n";
+        }
         else if (!strcmp(argv[i], "--EM-err-thr")){ // strcmp return 0 if both strings are identical
             if (i == argc - 1) fail_if_last(argv, i);
             EM_err_thr = atof(argv[++i]);

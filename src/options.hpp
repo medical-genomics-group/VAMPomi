@@ -31,6 +31,7 @@ public:
     std::string get_pval_method() const { return pval_method; }
 
     double get_stop_criteria_thr() const { return stop_criteria_thr; }
+    double get_merge_vars_thr() const { return merge_vars_thr; }
     double get_EM_err_thr() const { return EM_err_thr; }
     double get_rho() const { return rho; }
     double get_probit_var() const { return probit_var; }
@@ -74,7 +75,8 @@ private:
     std::string model = "linear";
     std::string pval_method = "se";
 
-    double stop_criteria_thr = 0.0;
+    double stop_criteria_thr = 0.01;
+    double merge_vars_thr = 5e-1;
     double EM_err_thr = 1e-2;
     unsigned int EM_max_iter = 1;
     unsigned int CG_max_iter = 500;
@@ -83,8 +85,8 @@ private:
     unsigned int N;
     unsigned int N_test;
     unsigned int Mt_test;
-    unsigned int num_mix_comp = 2;
-    unsigned int learn_vars = 0;
+    unsigned int num_mix_comp = 10;
+    unsigned int learn_vars = 1;
     double alpha_scale = 1.0; 
     unsigned int redglob = 0;
     unsigned int C = 0;
@@ -93,11 +95,11 @@ private:
     double h2 = 0.5;
     double gam1 = 1e-6;
     int verbosity = 0;
-    unsigned int iterations = 10;
+    unsigned int iterations = 50;
 
-    std::vector<double> vars = std::vector<double> {0.0, 0.001};
-    std::vector<double> probs = std::vector<double> {0.5, 0.5};
-    std::vector<int> test_iter_range = std::vector<int>{1, 10};
+    std::vector<double> vars = std::vector<double> {0, 1e-06, 6e-06, 3e-05, 2e-04, 1e-03, 6e-03, 3e-02, 2e-01, 1e+00};
+    std::vector<double> probs = std::vector<double> {9.90000e-01, 5.00000e-03, 2.50000e-03, 1.25000e-03, 6.25000e-04, 3.12500e-04, 1.56250e-04, 7.81250e-05, 3.90625e-05, 3.90625e-05};
+    std::vector<int> test_iter_range = std::vector<int>{1, 50};
 
     void fail_if_last(char** argv, const int i);
     void check_options();

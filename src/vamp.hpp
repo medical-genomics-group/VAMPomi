@@ -37,10 +37,11 @@ private:
     double EM_err_thr = 1e-2;
     int CG_max_iter = 100;
     double CG_err_tol = 1e-5;
-    int learn_vars = 0;
+    int learn_vars = 1;
     double damp_max = 1;
     double damp_min = 0.05;
-    double gam1_stop_criter = 0.0;
+    double stop_criteria_thr = 0.01;
+    double merge_vars_thr = 5e-1;
     
     std::string model;
     std::string out_dir;
@@ -92,6 +93,7 @@ public:
             double rho,
             int learn_vars,
             double stop_criteria_thr,
+            double merge_vars_thr,
             std::vector<double> vars,
             std::vector<double> probs, 
             std::vector<double> true_signal, 

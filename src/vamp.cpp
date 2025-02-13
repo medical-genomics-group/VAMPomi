@@ -29,6 +29,7 @@ vamp::vamp( int N,
             double rho,
             int learn_vars,
             double stop_criteria_thr,
+            double merge_vars_thr,
             std::vector<double> vars,
             std::vector<double> probs, 
             std::vector<double> true_signal, 
@@ -51,7 +52,8 @@ vamp::vamp( int N,
             EM_err_thr(EM_err_thr),
             rho(rho),
             learn_vars(learn_vars),
-            gam1_stop_criter(stop_criteria_thr),
+            stop_criteria_thr(stop_criteria_thr),
+            merge_vars_thr(merge_vars_thr),
             vars(vars),
             probs(probs),
             true_signal(true_signal),
@@ -363,7 +365,7 @@ std::vector<double> vamp::infere_linear(data* dataset){
             std::cout << "...storing parameters to CSV files" << std::endl;
             write_ofile_csv(out_params_fh, it, &params);
             write_ofile_csv(out_metrics_fh, it, &metrics);
-            write_ofile_csv(out_prior_fh, it, &prior_params);
+            //write_ofile_csv(out_prior_fh, it, &prior_params);
         }
         
         double end_lmmse_step = MPI_Wtime();
@@ -373,17 +375,32 @@ std::vector<double> vamp::infere_linear(data* dataset){
             std::cout << "LMMSE step took "  << end_lmmse_step - start_lmmse_step << " seconds." << std::endl;
             std::cout << "Total iteration time = " << end_denoising - start_denoising + end_lmmse_step - start_lmmse_step << std::endl;
             std::cout << "Total computation time so far = " << total_comp_time << std::endl;
-            std::cout << std::endl << std::endl;
+            //std::cout << std::endl << std::endl;
         }
 
-        // Stoping critereia
-        if((abs(gam1 - gam1_prev) / gam1_prev) < gam1_stop_criter){
-            if (rank == 0){
-                std::cout << "Stopping criteria fulfilled " << std::endl;
-            }
+        // Stopping criteria
+        if (rank == 0)
+            std::cout << "...stopping criteria assessment" << std::endl;
+
+        std::vector<double> x1_hat_diff = std::vector<double>(M, 0.0);
+        for (int i = 0; i < M; i++)
+            x1_hat_diff[i] = x1_hat_prev[i] - x1_hat[i];
+
+        double NMSE = sqrt( l2_norm2(x1_hat_diff, 1) / l2_norm2(x1_hat_prev, 1) );
+        if (rank == 0)
+            std::cout << "x1_hat NMSE = " << NMSE << std::endl;
+        if (rank == 0)
+            std::cout << "stop_criteria_thr = " << stop_criteria_thr << std::endl;
+
+        if (it > 1 && NMSE < stop_criteria_thr){
+            if (rank == 0)
+                std::cout << "...stopping criteria fulfilled" << std::endl;
             break;
         }
-            
+        if (it == max_iter){
+            if (rank == 0)
+                std::cout << "...maximal number of iterations was achieved. The algorithm might not converge!" << std::endl;
+        }
     }
 
     check_mpi(MPI_File_close(&out_params_fh), __LINE__, __FILE__);
@@ -489,131 +506,127 @@ void vamp::updateNoisePrec(data* dataset){
 
 void vamp::updatePrior() {
     
-        double noise_var = 1 / gam1;
-        double lambda = 1 - probs[0];
+    double noise_var = 1 / gam1;
+    double lambda = 1 - probs[0];
 
-        std::vector<double> omegas = probs;
-        for (int j = 1; j < omegas.size(); j++) // omegas is of length L
-            omegas[j] /= lambda;
+    std::vector<double> omegas = probs;
+    for (int j = 1; j < omegas.size(); j++) // omegas is of length L
+        omegas[j] /= lambda;
                        
-        // calculating normalized beta and pin
-        int it;
+    // calculating normalized beta and pin
+    int it;
 
-        for (it = 0; it < EM_max_iter; it++){
+    for (it = 0; it < EM_max_iter; it++){
 
-            double max_sigma = *std::max_element(vars.begin(), vars.end()); // std::max_element returns iterators, not values
+        double max_sigma = *std::max_element(vars.begin(), vars.end()); // std::max_element returns iterators, not values
 
-            std::vector<double> probs_prev = probs;
-            std::vector<double> vars_prev = vars;
-            std::vector< std::vector<double> > gammas;
-            std::vector< std::vector<double> > beta;
-            std::vector<double> pin(M, 0.0);
-            std::vector<double> v;
+        std::vector<double> probs_prev = probs;
+        std::vector<double> vars_prev = vars;
+        std::vector< std::vector<double> > gammas;
+        std::vector< std::vector<double> > beta;
+        std::vector<double> pin(M, 0.0);
+        std::vector<double> v;
 
-            for (int i = 0; i < M; i++){
-
-                std::vector<double> temp; // of length (L-1)
-                std::vector<double> temp_gammas;
-
-                for (int j = 1; j < probs.size(); j++ ){
-
-                    double num = lambda * omegas[j] * exp( - pow(r1[i], 2) / 2 * (max_sigma - vars[j]) / (vars[j] + noise_var) / (max_sigma + noise_var) ) / sqrt(vars[j] + noise_var) / sqrt(2 * M_PI);
-                    double num_gammas = gam1 * r1[i] / ( 1 / vars[j] + gam1 );   
-
-                    temp.push_back(num);
-                    temp_gammas.push_back(num_gammas);
-                }
-
-                double sum_of_elems = std::accumulate(temp.begin(), temp.end(), decltype(temp)::value_type(0));
-            
-                for (int j = 0; j < temp.size(); j++ )
-                    temp[j] /= sum_of_elems;
-                
-                beta.push_back(temp);
-                gammas.push_back(temp_gammas);
-                
-                pin[i] = 1 / ( 1 + (1-lambda) / sqrt(2 * M_PI * noise_var) * exp( - pow(r1[i], 2) / 2 * max_sigma / noise_var / (noise_var + max_sigma) ) / sum_of_elems );
-            } 
-
-            for (int j = 1; j < probs.size(); j++)
-                v.push_back( 1.0 / ( 1.0 / vars[j] + gam1 ) ); // v is of size (L-1) in the end
-            
-            lambda = accumulate(pin.begin(), pin.end(), 0.0); // / pin.size();
-
-            double lambda_total = 0;
-
-            MPI_Allreduce(&lambda, &lambda_total, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-
-            lambda = lambda_total / Mt;
+    for (int i = 0; i < M; i++){
+            std::vector<double> temp; // of length (L-1)
+            std::vector<double> temp_gammas;
+            for (int j = 1; j < probs.size(); j++ ){
+                double num = lambda * omegas[j] * exp( - pow(r1[i], 2) / 2 * (max_sigma - vars[j]) / (vars[j] + noise_var) / (max_sigma + noise_var) ) / sqrt(vars[j] + noise_var) / sqrt(2 * M_PI);
+                double num_gammas = gam1 * r1[i] / ( 1 / vars[j] + gam1 );   
+                temp.push_back(num);
+                temp_gammas.push_back(num_gammas);
+            }
+            double sum_of_elems = std::accumulate(temp.begin(), temp.end(), decltype(temp)::value_type(0));
         
-            for (int i = 0; i < M; i++){
-                for (int j = 0; j < (beta[0]).size(); j++ ){
-                    gammas[i][j] = beta[i][j] * ( gammas[i][j] * gammas[i][j] + v[j] );
-                }
-            }
-
-            //double sum_of_pin = std::accumulate(pin.begin(), pin.end(), decltype(pin)::value_type(0));
-            double sum_of_pin = lambda_total;
-
-            for (int j = 0; j < (beta[0]).size(); j++){ // of length (L-1)
-                double res = 0, res_gammas = 0;
-                for (int i = 0; i < M; i++){
-                    res += beta[i][j] * pin[i];
-                    res_gammas += gammas[i][j] * pin[i];
-                }
-
-                double res_gammas_total = 0;
-                double res_total = 0;
-                MPI_Allreduce(&res_gammas, &res_gammas_total, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-                MPI_Allreduce(&res, &res_total, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-
-                if (learn_vars == 1)
-                    vars[j+1] = res_gammas_total / res_total;
-                omegas[j+1] = res_total / sum_of_pin;
-                probs[j+1] = lambda * omegas[j+1];
-
-            }
-
-            probs[0] = 1 - lambda;
+            for (int j = 0; j < temp.size(); j++ )
+                temp[j] /= sum_of_elems;
+            
+            beta.push_back(temp);
+            gammas.push_back(temp_gammas);
+            
+            pin[i] = 1 / ( 1 + (1-lambda) / sqrt(2 * M_PI * noise_var) * exp( - pow(r1[i], 2) / 2 * max_sigma / noise_var / (noise_var + max_sigma) ) / sum_of_elems );
+        } 
+        for (int j = 1; j < probs.size(); j++)
+            v.push_back( 1.0 / ( 1.0 / vars[j] + gam1 ) ); // v is of size (L-1) in the end
         
-            double distance_probs = 0, norm_probs = 0;
-            double distance_vars = 0, norm_vars = 0;
-
-            for (int j = 0; j < probs.size(); j++){
-
-                distance_probs += ( probs[j] - probs_prev[j] ) * ( probs[j] - probs_prev[j] );
-                norm_probs += probs[j] * probs[j];
-                distance_vars += ( vars[j] - vars_prev[j] ) * ( vars[j] - vars_prev[j] );
-                norm_vars += vars[j] * vars[j];
-            }
-            double dist_probs = sqrt(distance_probs / norm_probs);
-            double dist_vars = sqrt(distance_vars / norm_vars);
-
-            if (verbosity == 1)
-                if (rank == 0)
-                    std::cout << "it = " << it << ": dist_probs = " << dist_probs << " & dist_vars = " << dist_vars << std::endl;
-            if ( dist_probs < EM_err_thr  && dist_vars < EM_err_thr )
-                break;   
-        }
+        lambda = accumulate(pin.begin(), pin.end(), 0.0); // / pin.size();
+        double lambda_total = 0;
+        MPI_Allreduce(&lambda, &lambda_total, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+        lambda = lambda_total / Mt;
     
+        for (int i = 0; i < M; i++){
+            for (int j = 0; j < (beta[0]).size(); j++ ){
+                gammas[i][j] = beta[i][j] * ( gammas[i][j] * gammas[i][j] + v[j] );
+            }
+        }
+        //double sum_of_pin = std::accumulate(pin.begin(), pin.end(), decltype(pin)::value_type(0));
+        double sum_of_pin = lambda_total;
+        for (int j = 0; j < (beta[0]).size(); j++){ // of length (L-1)
+            double res = 0, res_gammas = 0;
+            for (int i = 0; i < M; i++){
+                res += beta[i][j] * pin[i];
+                res_gammas += gammas[i][j] * pin[i];
+            }
+            double res_gammas_total = 0;
+            double res_total = 0;
+            MPI_Allreduce(&res_gammas, &res_gammas_total, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+            MPI_Allreduce(&res, &res_total, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+            if (learn_vars == 1)
+                vars[j+1] = res_gammas_total / res_total;
+            omegas[j+1] = res_total / sum_of_pin;
+            probs[j+1] = lambda * omegas[j+1];
+        }
+        probs[0] = 1 - lambda;
+    
+        double distance_probs = 0, norm_probs = 0;
+        double distance_vars = 0, norm_vars = 0;
+        for (int j = 0; j < probs.size(); j++){
+            distance_probs += ( probs[j] - probs_prev[j] ) * ( probs[j] - probs_prev[j] );
+            norm_probs += probs[j] * probs[j];
+            distance_vars += ( vars[j] - vars_prev[j] ) * ( vars[j] - vars_prev[j] );
+            norm_vars += vars[j] * vars[j];
+        }
+        double dist_probs = sqrt(distance_probs / norm_probs);
+        double dist_vars = sqrt(distance_vars / norm_vars);
         if (verbosity == 1)
-            if (rank == 0)  
-                std::cout << "Final number of prior EM iterations = " << std::min(it + 1, EM_max_iter) << " / " << EM_max_iter << std::endl;
+            if (rank == 0)
+                std::cout << "it = " << it << ": dist_probs = " << dist_probs << " & dist_vars = " << dist_vars << std::endl;
+        if ( dist_probs < EM_err_thr  && dist_vars < EM_err_thr )
+            break;   
+    }
+
+    if (verbosity == 1)
+        if (rank == 0)  
+            std::cout << "Final number of prior EM iterations = " << std::min(it + 1, EM_max_iter) << " / " << EM_max_iter << std::endl;
+
+    // merging close variances    
+    for (int j = 0; j < vars.size(); j++){
+        for (int k = j+1; k < vars.size(); k++){
+            double denom;
+            if (vars[j] != 0)
+                denom = std::min(vars[j], vars[k]);
+            else
+                denom = 1e-7;
+            if ( abs(vars[j] - vars[k]) / denom < merge_vars_thr ){
+                double sum2probs = probs[j] + probs[k];
+                vars.erase(vars.begin() + k);
+                probs.erase(probs.begin() + k);
+                probs[j] = sum2probs;
+                k--;
+            }
+        }
+    }
 
     // prior distribution parameters
     if (rank == 0){
         std::cout << "Prior variances = ";
-
         for (int i = 0; i < vars.size(); i++)
             std::cout << vars[i] / (double) N << ' ';
-
         std::cout << std::endl;
-        
+    
         std::cout << "Prior probabilities = ";
-
         for (int i = 0; i < probs.size(); i++)
             std::cout << probs[i] << ' ';
-
         std::cout << std::endl;
     }
 }

@@ -54,6 +54,7 @@ int main(int argc, char** argv)
         int max_iter = opt.get_iterations();
         int learn_vars = opt.get_learn_vars();
         double stop_criteria_thr = opt.get_stop_criteria_thr();
+        double merge_vars_thr = opt.get_merge_vars_thr();
         int CG_max_iter = opt.get_CG_max_iter();
         double CG_err_tol = opt.get_CG_err_tol();
         int EM_max_iter = opt.get_EM_max_iter();
@@ -84,6 +85,7 @@ int main(int argc, char** argv)
                     rho,
                     learn_vars,
                     stop_criteria_thr,
+                    merge_vars_thr,
                     vars,
                     probs,
                     true_signal,
