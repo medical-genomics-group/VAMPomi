@@ -174,6 +174,19 @@ std::vector<double> vamp::infere_linear(data* dataset){
 
         if (it > 1)
             updatePrior();
+        
+        // prior distribution parameters
+        if (rank == 0){
+            std::cout << "Prior variances = ";
+            for (int i = 0; i < vars.size(); i++)
+                std::cout << vars[i] / (double) N << ' ';
+            std::cout << std::endl;
+    
+            std::cout << "Prior probabilities = ";
+            for (int i = 0; i < probs.size(); i++)
+                std::cout << probs[i] << ' ';
+            std::cout << std::endl;
+        }
 
         // new signal estimate
         x1_hat_prev = x1_hat;
@@ -615,19 +628,6 @@ void vamp::updatePrior() {
                 k--;
             }
         }
-    }
-
-    // prior distribution parameters
-    if (rank == 0){
-        std::cout << "Prior variances = ";
-        for (int i = 0; i < vars.size(); i++)
-            std::cout << vars[i] / (double) N << ' ';
-        std::cout << std::endl;
-    
-        std::cout << "Prior probabilities = ";
-        for (int i = 0; i < probs.size(); i++)
-            std::cout << probs[i] << ' ';
-        std::cout << std::endl;
     }
 }
 
