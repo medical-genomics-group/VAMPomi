@@ -433,6 +433,30 @@ std::vector<double> vamp::infere_bin_class( data* dataset ){
 
         if(rank == 0)
             std::cout << "Total time so far = " << total_time << " seconds." << std::endl;
+
+        // Stopping criteria
+        if (rank == 0)
+            std::cout << "...stopping criteria assessment" << std::endl;
+
+        std::vector<double> x1_hat_diff = std::vector<double>(M, 0.0);
+        for (int i = 0; i < M; i++)
+            x1_hat_diff[i] = x1_hat_prev[i] - x1_hat[i];
+
+        double NMSE = sqrt( l2_norm2(x1_hat_diff, 1) / l2_norm2(x1_hat_prev, 1) );
+        if (rank == 0)
+            std::cout << "x1_hat NMSE = " << NMSE << std::endl;
+        if (rank == 0)
+            std::cout << "stop_criteria_thr = " << stop_criteria_thr << std::endl;
+
+        if (it > 1 && NMSE < stop_criteria_thr){
+            if (rank == 0)
+                std::cout << "...stopping criteria fulfilled" << std::endl;
+            break;
+        }
+        if (it == max_iter){
+            if (rank == 0)
+                std::cout << "...maximal number of iterations was achieved. The algorithm might not converge!" << std::endl;
+        }
     }
     
     return x1_hat;
