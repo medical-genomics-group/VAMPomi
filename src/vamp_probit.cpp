@@ -45,6 +45,9 @@ std::vector<double> vamp::infere_bin_class( data* dataset ){
         true_signal_scaled[i] = true_signal[i] * sqrtN;
     std::vector<double> true_g = (*dataset).Ax(true_signal_scaled.data());
 
+    // Bernoulli distribution for trace estimation
+    std::bernoulli_distribution bern(0.5);
+    bern_vec = std::vector<double> (M, 0.0);
 
     // Gaussian noise start
     p1 = simulate(N, std::vector<double> {1.0}, std::vector<double> {1.0});
@@ -134,6 +137,19 @@ std::vector<double> vamp::infere_bin_class( data* dataset ){
 
             //updatePrior();
             if (it > 1) updatePrior();
+
+            // prior distribution parameters
+            if (rank == 0){
+                std::cout << "Prior variances = ";
+                for (int i = 0; i < vars.size(); i++)
+                    std::cout << vars[i] / (double) N << ' ';
+                std::cout << std::endl;
+    
+                std::cout << "Prior probabilities = ";
+                for (int i = 0; i < probs.size(); i++)
+                    std::cout << probs[i] << ' ';
+                std::cout << std::endl;
+            }
 
             //if ( abs(gam1 - gam1_reEst_prev) < 1e-3 )
             //    break;
@@ -275,6 +291,10 @@ std::vector<double> vamp::infere_bin_class( data* dataset ){
         double start_LMMSE = MPI_Wtime();
         if (rank == 0)
             std::cout << std::endl << "->LMMMSE" << std::endl;
+
+        // Sample random Bernoulli vector for trace estimation
+        for (int i = 0; i < M; i++)
+            bern_vec[i] = (2*bern(rd) - 1) / sqrt(Mt); // Bernoulli variables are sampled independently
 
         std::vector<double> v = (*dataset).ATx(p2.data());
 
