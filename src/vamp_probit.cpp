@@ -290,7 +290,7 @@ std::vector<double> vamp::infere_bin_class( data* dataset ){
         // ---------- LMMSE estimation of x ---------- //
         double start_LMMSE = MPI_Wtime();
         if (rank == 0)
-            std::cout << std::endl << "->LMMMSE" << std::endl;
+            std::cout << std::endl << "->LMMSE" << std::endl;
 
         // Sample random Bernoulli vector for trace estimation
         for (int i = 0; i < M; i++)
