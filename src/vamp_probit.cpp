@@ -81,7 +81,7 @@ std::vector<double> vamp::infere_bin_class( data* dataset ){
             //cov_eff = grad_desc_cov(y, gg, probit_var, Z, cov_eff); // std::vector<double>(C, 0.0)
             cov_eff = Newton_method_cov(y, gg, Z, cov_eff);
 
-            if (rank == 0 && verbosity == 1){
+            if (rank == 0){
                 for (int i0=0; i0<C; i0++){
                     std::cout << "cov_eff[" << i0 << "] = " << cov_eff[i0] << ", ";
                     if (i0 % 4 == 3)
@@ -231,7 +231,8 @@ std::vector<double> vamp::infere_bin_class( data* dataset ){
 
                 beta1 += g1d_bin_class(p1[i], tau1, y[i], m_cov);
             }
-
+            if(beta >= N)
+                beta = N - 1.0;
             beta1 /= N;
             double zeta1 = tau1 / beta1;
 
