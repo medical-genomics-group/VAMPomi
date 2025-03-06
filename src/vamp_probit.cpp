@@ -231,8 +231,8 @@ std::vector<double> vamp::infere_bin_class( data* dataset ){
 
                 beta1 += g1d_bin_class(p1[i], tau1, y[i], m_cov);
             }
-            if(beta >= N)
-                beta = N - 1.0;
+            if(beta1 >= N)
+                beta1 = N - 1.0;
             beta1 /= N;
             double zeta1 = tau1 / beta1;
 
