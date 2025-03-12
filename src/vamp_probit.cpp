@@ -343,6 +343,7 @@ std::vector<double> vamp::infere_bin_class( data* dataset ){
 
         gam1_prev = gam1;
         gam1 = gam2 * (1-alpha2) / alpha2;
+        gam1 = std::min(std::max(gam1, gamma_min ), gamma_max);
 
         // apply damping 
         //gam1 = rho * gam1 + (1-rho) * gam1_prev;
@@ -372,6 +373,7 @@ std::vector<double> vamp::infere_bin_class( data* dataset ){
 
         tau1_prev = tau1;
         tau1 = tau2 * (1 - beta2) / beta2;
+        tau1 = std::min(std::max(tau1, gamma_min ), gamma_max);
 
         //  apply damping to z variance
         //tau1 = rho * tau1 + (1 - rho) * tau1_prev;
