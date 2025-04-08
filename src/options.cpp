@@ -126,6 +126,15 @@ void Options::read_command_line_options(int argc, char** argv) {
             learn_vars = (unsigned int) atoi(argv[++i]);
             ss << "--learn-vars " << learn_vars << "\n";
         }
+        else if (!strcmp(argv[i], "--learn-prior-delay")) {
+            if (i == argc - 1) fail_if_last(argv, i);
+            if (atoi(argv[i + 1]) < 0) {
+                std::cout << "FATAL  : option --learn-prior-delay has to be a non-negative integer! (" << argv[i + 1] << " was passed)" << std::endl;
+                exit(EXIT_FAILURE);
+            }
+            learn_prior_delay = (unsigned int) atoi(argv[++i]);
+            ss << "--learn-prior-delay " << learn_prior_delay << "\n";
+        }
         else if (!strcmp(argv[i], "--iterations")) {
             if (i == argc - 1) fail_if_last(argv, i);
             if (atoi(argv[i + 1]) < 1) {

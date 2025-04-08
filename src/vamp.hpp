@@ -38,6 +38,7 @@ private:
     int CG_max_iter = 100;
     double CG_err_tol = 1e-5;
     int learn_vars = 1;
+    int learn_prior_delay = 1;
     double damp_max = 1;
     double damp_min = 0.05;
     double stop_criteria_thr = 0.01;
@@ -92,11 +93,12 @@ public:
             double EM_err_thr,
             double rho,
             int learn_vars,
+            int learn_prior_delay,
             double stop_criteria_thr,
             double merge_vars_thr,
             std::vector<double> vars,
             std::vector<double> probs, 
-            std::vector<double> true_signal, 
+            std::vector<double> true_signal,
             std::string out_dir, 
             std::string out_name, 
             std::string model,

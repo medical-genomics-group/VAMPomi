@@ -48,6 +48,7 @@ public:
     unsigned int get_C() const { return C; }
     unsigned int get_redglob() const { return redglob; }
     unsigned int get_learn_vars() const { return learn_vars; }
+    unsigned int get_learn_prior_delay() const { return learn_prior_delay; }
     double get_h2() const { return h2; }
     double get_gam1() const { return gam1; }
     double get_alpha_scale() const { return alpha_scale; }
@@ -87,6 +88,7 @@ private:
     unsigned int Mt_test;
     unsigned int num_mix_comp = 10;
     unsigned int learn_vars = 1;
+    unsigned int learn_prior_delay = 1;
     double alpha_scale = 1.0; 
     unsigned int redglob = 0;
     unsigned int C = 0;

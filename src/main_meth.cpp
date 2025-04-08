@@ -41,6 +41,7 @@ int main(int argc, char** argv)
         // Get command line options
         std::string phenfp = opt.get_phen_file(); // Phenotype file
         std::string mrkfp = opt.get_meth_file();
+        std::string est_file_name = opt.get_estimate_file();
         double alpha_scale = opt.get_alpha_scale();
 
         // Reading train set
@@ -53,6 +54,7 @@ int main(int argc, char** argv)
         
         int max_iter = opt.get_iterations();
         int learn_vars = opt.get_learn_vars();
+        int learn_prior_delay = opt.get_learn_prior_delay();
         double stop_criteria_thr = opt.get_stop_criteria_thr();
         double merge_vars_thr = opt.get_merge_vars_thr();
         int CG_max_iter = opt.get_CG_max_iter();
@@ -84,6 +86,7 @@ int main(int argc, char** argv)
                     EM_err_thr,
                     rho,
                     learn_vars,
+                    learn_prior_delay,
                     stop_criteria_thr,
                     merge_vars_thr,
                     vars,

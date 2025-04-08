@@ -28,11 +28,12 @@ vamp::vamp( int N,
             double EM_err_thr,
             double rho,
             int learn_vars,
+            int learn_prior_delay,
             double stop_criteria_thr,
             double merge_vars_thr,
             std::vector<double> vars,
             std::vector<double> probs, 
-            std::vector<double> true_signal, 
+            std::vector<double> true_signal,
             std::string out_dir, 
             std::string out_name, 
             std::string model,
@@ -52,6 +53,7 @@ vamp::vamp( int N,
             EM_err_thr(EM_err_thr),
             rho(rho),
             learn_vars(learn_vars),
+            learn_prior_delay(learn_prior_delay),
             stop_criteria_thr(stop_criteria_thr),
             merge_vars_thr(merge_vars_thr),
             vars(vars),
@@ -65,8 +67,9 @@ vamp::vamp( int N,
 
                 x1_hat = std::vector<double> (M, 0.0);
                 x2_hat = std::vector<double> (M, 0.0);
-                r1 = std::vector<double> (M, 0.0);
+                
                 //r1 = simulate(M, std::vector<double> {1.0 / gam1}, std::vector<double> {1});
+                r1 = std::vector<double> (M, 0.0);
                 r2 = std::vector<double> (M, 0.0);
                 p1 = std::vector<double> (N, 0.0);
     
@@ -172,7 +175,7 @@ std::vector<double> vamp::infere_linear(data* dataset){
         probs_before = probs;
         vars_before = vars;
 
-        if (it > 1)
+        if (it > learn_prior_delay)
             updatePrior();
         
         // prior distribution parameters
