@@ -9,6 +9,9 @@ class vamp{
 private:
     int N, M, Mt, C, max_iter, rank, nranks;
     double gam1, gam_before;
+    double gam1_trans;
+    double a_scale = 0.5;
+    double a_scale_fade = 0.5;
     double gam2 = 0;
     double eta1 = 0;
     double eta2 = 0;
@@ -23,6 +26,7 @@ private:
     std::vector<double> y;                              // phenotype vector
     std::vector<double> z1;                             // z1 = A * x1_hat 
     std::vector<double> r1, r2, r2_prev;
+    std::vector<double> r1_trans;
     std::vector<double> p1, p2;
     std::vector<double> cov_eff;                        // covariates in a probit model
     std::vector<double> mu_CG_last;                     // last LMMSE estimate
@@ -55,6 +59,8 @@ private:
     double total_comp_time = 0;
 
     int verbosity = 0;
+
+    bool transfer_learn;
 
     MPI_File out_params_fh;
     MPI_File out_metrics_fh;
@@ -99,6 +105,11 @@ public:
             std::vector<double> vars,
             std::vector<double> probs, 
             std::vector<double> true_signal,
+            bool transfer_learn,
+            std::vector<double> r1_trans,
+            double gam1_trans,
+            double a_scale,
+            double a_scale_fade,
             std::string out_dir, 
             std::string out_name, 
             std::string model,
@@ -116,7 +127,8 @@ public:
     double g1d(double x, double gam1);
     double g1d_bin_class(double p, double tau1, double y, double m_cov);
     double g2d_onsager(double gam2, double tau, data* dataset);
-
+    double g1_transfer(double r1, double gam1, double r1_add, double gam1_add, double a_scale);
+    double g1d_transfer(double r1, double gam1, double r1_add, double gam1_add, double a_scale);
 
     // HYPERPARAMETERS UPDATE
     void updatePrior();

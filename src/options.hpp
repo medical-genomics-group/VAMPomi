@@ -20,6 +20,7 @@ public:
     std::string get_true_signal_file() const { return true_signal_file; }
     std::string get_estimate_file() const { return estimate_file; }
     std::string get_r1_file() const { return r1_file; }
+    std::string get_r1_trans_file() const { return r1_trans_file; }
     std::string get_cov_estimate_file() const { return cov_estimate_file; }
     std::string get_cov_file() const { return cov_file; }
     std::string get_cov_file_test() const { return cov_file_test; }
@@ -51,6 +52,9 @@ public:
     unsigned int get_learn_prior_delay() const { return learn_prior_delay; }
     double get_h2() const { return h2; }
     double get_gam1() const { return gam1; }
+    double get_gam1_trans() const { return gam1_trans; }
+    double get_a_scale() const { return a_scale; }
+    double get_a_scale_fade() const { return a_scale_fade; }
     double get_alpha_scale() const { return alpha_scale; }
     int  get_verbosity() const { return verbosity; }
     unsigned int get_iterations() const { return iterations; }
@@ -67,6 +71,7 @@ private:
     std::string true_signal_file;
     std::string estimate_file = "";
     std::string r1_file = "";
+    std::string r1_trans_file = "";
     std::string cov_estimate_file = "";
     std::string cov_file = "";
     std::string cov_file_test = "";
@@ -96,6 +101,9 @@ private:
     double rho = 0.5;
     double h2 = 0.5;
     double gam1 = 1e-6;
+    double gam1_trans = 1e-6;
+    double a_scale = 0.5;
+    double a_scale_fade = 0.5;
     int verbosity = 0;
     unsigned int iterations = 50;
 

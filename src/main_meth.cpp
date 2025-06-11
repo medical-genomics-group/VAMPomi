@@ -72,6 +72,17 @@ int main(int argc, char** argv)
         else 
             true_signal = std::vector<double> (M, 0.0);
 
+        // Read r1 for transfer learning, if provided
+        std::vector<double> r1_trans;
+        bool transfer_learn = false;
+        double gam1_trans = opt.get_gam1_trans();
+        double a_scale = opt.get_a_scale();
+        double a_scale_fade = opt.get_a_scale_fade();
+        if(opt.get_r1_trans_file() != ""){
+            r1_trans = mpi_read_vec_from_file(opt.get_r1_trans_file(), M, S);
+            transfer_learn = true;
+            }
+
         // ---------------- running VAMP algorithm -------------------- //
         vamp emvamp(N, 
                     M,
@@ -92,6 +103,11 @@ int main(int argc, char** argv)
                     vars,
                     probs,
                     true_signal,
+                    transfer_learn,
+                    r1_trans,
+                    gam1_trans,
+                    a_scale,
+                    a_scale_fade,
                     out_dir,
                     out_name,
                     model,

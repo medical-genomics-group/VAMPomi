@@ -52,6 +52,11 @@ void Options::read_command_line_options(int argc, char** argv) {
             r1_file = argv[++i];
             ss << "--r1-file " << r1_file << "\n";
         }
+        else if (!strcmp(argv[i], "--r1-trans-file")) {
+            if (i == argc - 1) fail_if_last(argv, i);
+            r1_trans_file = argv[++i];
+            ss << "--r1-trans-file " << r1_trans_file << "\n";
+        }
         else if (!strcmp(argv[i], "--cov-estimate-file")) {
             if (i == argc - 1) fail_if_last(argv, i);
             cov_estimate_file = argv[++i];
@@ -207,7 +212,23 @@ void Options::read_command_line_options(int argc, char** argv) {
             if (i == argc - 1) fail_if_last(argv, i);
             gam1 = atof(argv[++i]);
             ss << "--gam1 " << gam1 << "\n";
-        } else if (!strcmp(argv[i], "--EM-max-iter")){ // strcmp return 0 if both strings are identical
+        }
+        else if (!strcmp(argv[i], "--gam1-trans")){ // strcmp return 0 if both strings are identical
+            if (i == argc - 1) fail_if_last(argv, i);
+            gam1_trans = atof(argv[++i]);
+            ss << "--gam1-trans " << gam1_trans << "\n";
+        }
+        else if (!strcmp(argv[i], "--a-scale")){ // strcmp return 0 if both strings are identical
+            if (i == argc - 1) fail_if_last(argv, i);
+            a_scale = atof(argv[++i]);
+            ss << "--a-scale " << a_scale << "\n";
+        }
+        else if (!strcmp(argv[i], "--a-scale-fade")){ // strcmp return 0 if both strings are identical
+            if (i == argc - 1) fail_if_last(argv, i);
+            a_scale_fade = atof(argv[++i]);
+            ss << "--a-scale-fade " << a_scale_fade << "\n";
+        }
+        else if (!strcmp(argv[i], "--EM-max-iter")){ // strcmp return 0 if both strings are identical
             if (i == argc - 1) fail_if_last(argv, i);
             if (atoi(argv[i + 1]) < 1) {
                 std::cout << "FATAL  : option --EM-max-iter has to be a strictly positive integer! (" << argv[i + 1] << " was passed)" << std::endl;

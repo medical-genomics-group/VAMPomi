@@ -34,6 +34,11 @@ vamp::vamp( int N,
             std::vector<double> vars,
             std::vector<double> probs, 
             std::vector<double> true_signal,
+            bool transfer_learn,
+            std::vector<double> r1_trans,
+            double gam1_trans,
+            double a_scale,
+            double a_scale_fade,
             std::string out_dir, 
             std::string out_name, 
             std::string model,
@@ -59,6 +64,11 @@ vamp::vamp( int N,
             vars(vars),
             probs(probs),
             true_signal(true_signal),
+            transfer_learn(transfer_learn),
+            r1_trans(r1_trans),
+            gam1_trans(gam1_trans),
+            a_scale(a_scale),
+            a_scale_fade(a_scale_fade),
             out_dir(out_dir),
             out_name(out_name),
             model(model),
@@ -74,6 +84,11 @@ vamp::vamp( int N,
                 p1 = std::vector<double> (N, 0.0);
     
                 MPI_Comm_size(MPI_COMM_WORLD, &nranks);
+
+                if (transfer_learn){
+                    for (int i = 0; i < M; i++)
+                        r1_trans[i] *= sqrt( (double) N );
+                }
 
                 // we scale mixture variances of effects by N (since the design matrix is scaled by 1/sqrt(N))
                 for (int i = 0; i < vars.size(); i++)
@@ -136,6 +151,14 @@ std::vector<double> vamp::infere_linear(data* dataset){
 
     double sqrtN = sqrt(N);
 
+    if (transfer_learn){
+        if (rank == 0){
+            std::cout << "...using transfer learning" << std::endl;
+            std::cout << "gam1_trans = " << gam1_trans << std::endl;
+            std::cout << "r1_trans[0] = " << r1_trans[0] << std::endl;
+        }
+    }
+
     // ---------------- starting VAMP iterations ----------------
     for (int it = 1; it <= max_iter; it++)
     {    
@@ -193,9 +216,13 @@ std::vector<double> vamp::infere_linear(data* dataset){
 
         // new signal estimate
         x1_hat_prev = x1_hat;
-        for (int i = 0; i < M; i++)
-            x1_hat[i] = g1(r1[i], gam1);
-
+        for (int i = 0; i < M; i++){
+            if (transfer_learn)
+                x1_hat[i] = g1_transfer(r1[i], gam1, r1_trans[i], gam1_trans, a_scale);
+            else
+                x1_hat[i] = g1(r1[i], gam1);
+        }
+        
         // damping 
         if (it > 1){ 
             for (int i = 0; i < M; i++)
@@ -206,7 +233,10 @@ std::vector<double> vamp::infere_linear(data* dataset){
         double sum_d = 0;
         for (int i=0; i<M; i++)
         {
-            x1_hat_d[i] = g1d(r1[i], gam1);
+            if (transfer_learn)
+                x1_hat_d[i] = g1d_transfer(r1[i], gam1, r1_trans[i], gam1_trans, a_scale);
+            else
+                x1_hat_d[i] = g1d(r1[i], gam1);
             sum_d += x1_hat_d[i];
         }
 
@@ -272,6 +302,7 @@ std::vector<double> vamp::infere_linear(data* dataset){
             std::cout << "gam1 = " << gam1 << std::endl;
             std::cout << "gam2 = " << gam2 << std::endl;
             std::cout << "true gam2 = " << gam2_true << std::endl;
+            std::cout << "a scale = " << a_scale << std::endl;
         }
 
         double end_denoising = MPI_Wtime();
@@ -355,6 +386,9 @@ std::vector<double> vamp::infere_linear(data* dataset){
    
         // printing out error measures
         err_measures(dataset, 2, metrics);
+
+        // a scale fade
+        a_scale = a_scale_fade * (1.0 - a_scale) + a_scale;
 
         // Save and print hyperparameters
         params[2] = alpha2;
@@ -492,6 +526,150 @@ double vamp::g2d_onsager(double gam2, double tau, data* dataset) { // shared bet
     return onsager;    
 }
 
+double vamp::g1_transfer(double r1, 
+    double gam1, 
+    double r1_add,
+    double gam1_add,
+    double a_scale) {
+
+double lambda = 1 - probs[0];
+
+std::vector<double> variances(vars.begin() + 1, vars.end());
+std::vector<double> omegas(probs.begin() + 1, probs.end());
+for (int j = 0; j < omegas.size(); j++) // omegas and variances are of length L
+omegas[j] /= lambda;
+
+// Compute sigma2_meta = 1.0 / (sum(a_scale * gam1s) + 1.0/vars)
+double sum_a_gam1s = a_scale * gam1 + (1-a_scale) * gam1_add;
+std::vector<double> sigma2_meta(variances.size());
+for (size_t i = 0; i < sigma2_meta.size(); ++i) 
+sigma2_meta[i] = 1.0 / (sum_a_gam1s + 1.0 / variances[i]);
+
+// Compute mu_meta = np.inner(rs, a * gam1s) * sigma2_meta
+std::vector<double> mu_meta(variances.size());
+for (size_t i = 0; i < variances.size(); ++i) 
+mu_meta[i] = (r1 * gam1 * a_scale + r1_add * gam1_add * (1-a_scale)) * sigma2_meta[i];
+
+// Find max_ind = argmax(mu_meta^2 / sigma2_meta)
+std::vector<double> ratio(mu_meta.size());
+std::transform(mu_meta.begin(), mu_meta.end(), sigma2_meta.begin(), ratio.begin(),
+  [](double mu, double sigma) { return (mu * mu) / sigma; } );
+
+int max_ind = std::distance(ratio.begin(), std::max_element(ratio.begin(), ratio.end()));
+
+// Compute EXP
+std::vector<double> EXP(mu_meta.size());
+double max_mu_sq = mu_meta[max_ind] * mu_meta[max_ind];
+
+std::transform(mu_meta.begin(), mu_meta.end(), sigma2_meta.begin(), EXP.begin(),
+  [max_mu_sq, max_ind, &sigma2_meta](double mu, double sigma) {
+      return std::exp(0.5 * ( (mu * mu * sigma2_meta[max_ind] - max_mu_sq * sigma) /
+                             (sigma * sigma2_meta[max_ind]) ));
+  });
+
+double Num = 0.0;
+for (size_t i = 0; i < omegas.size(); ++i) {
+Num += omegas[i] * EXP[i] * mu_meta[i] * std::sqrt(sigma2_meta[i] / variances[i]);
+}
+
+// Multiply by lambda
+Num *= lambda;
+
+// Compute EXP2
+double EXP2 = std::exp(-0.5 * (mu_meta[max_ind] * mu_meta[max_ind] / sigma2_meta[max_ind]));
+
+// Compute Den
+double sum_term = 0.0;
+for (size_t i = 0; i < omegas.size(); ++i) {
+sum_term += omegas[i] * EXP[i] * std::sqrt(sigma2_meta[i] / variances[i]);
+}
+
+// Compute Den
+double Den = (1 - lambda) * EXP2 + lambda * sum_term;
+
+return Num / Den;
+}
+
+double vamp::g1d_transfer(double r1, 
+         double gam1, 
+         double r1_add,
+         double gam1_add,
+         double a_scale) {
+
+double lambda = 1 - probs[0];
+
+std::vector<double> variances(vars.begin() + 1, vars.end());
+std::vector<double> omegas(probs.begin() + 1, probs.end());
+for (int j = 0; j < omegas.size(); j++) // omegas and variances are of length L
+omegas[j] /= lambda;
+
+// Compute sigma2_meta = 1.0 / (sum(a_scale * gam1s) + 1.0/vars)
+double sum_a_gam1s = a_scale * gam1 + (1-a_scale) * gam1_add;
+std::vector<double> sigma2_meta(variances.size());
+for (size_t i = 0; i < sigma2_meta.size(); ++i) 
+sigma2_meta[i] = 1.0 / (sum_a_gam1s + 1.0 / variances[i]);
+
+// Compute mu_meta = np.inner(rs, a * gam1s) * sigma2_meta
+std::vector<double> mu_meta(variances.size());
+for (size_t i = 0; i < variances.size(); ++i) 
+mu_meta[i] = (r1 * gam1 * a_scale + r1_add * gam1_add * (1-a_scale)) * sigma2_meta[i];
+
+// Find max_ind = argmax(mu_meta^2 / sigma2_meta)
+std::vector<double> ratio(mu_meta.size());
+std::transform(mu_meta.begin(), mu_meta.end(), sigma2_meta.begin(), ratio.begin(),
+   [](double mu, double sigma) { return (mu * mu) / sigma; } );
+
+int max_ind = std::distance(ratio.begin(), std::max_element(ratio.begin(), ratio.end()));
+
+// Compute EXP
+std::vector<double> EXP(mu_meta.size());
+double max_mu_sq = mu_meta[max_ind] * mu_meta[max_ind];
+
+std::transform(mu_meta.begin(), mu_meta.end(), sigma2_meta.begin(), EXP.begin(),
+   [max_mu_sq, max_ind, &sigma2_meta](double mu, double sigma) {
+       return std::exp(0.5 * ((mu * mu * sigma2_meta[max_ind] - max_mu_sq * sigma) /
+                               (sigma * sigma2_meta[max_ind])));
+   });
+
+double Num = 0.0;
+for (size_t i = 0; i < omegas.size(); ++i) {
+Num += omegas[i] * EXP[i] * mu_meta[i] * std::sqrt(sigma2_meta[i] / variances[i]);
+}
+
+// Multiply by lambda
+Num *= lambda;
+
+// Compute EXP2
+double EXP2 = std::exp(-0.5 * (mu_meta[max_ind] * mu_meta[max_ind] / sigma2_meta[max_ind]));
+
+// Compute Den
+double sum_term = 0.0;
+for (size_t i = 0; i < omegas.size(); ++i) 
+sum_term += omegas[i] * EXP[i] * std::sqrt(sigma2_meta[i] / variances[i]);
+
+// Compute Den
+double Den = (1 - lambda) * EXP2 + lambda * sum_term;
+
+// Compute DerNum
+double DerNum = 0.0;
+for (size_t i = 0; i < omegas.size(); ++i) {
+DerNum += omegas[i] * EXP[i] * (mu_meta[i] * mu_meta[i] + sigma2_meta[i]) * a_scale * gam1 * std::sqrt(sigma2_meta[i] / variances[i]);
+}
+DerNum *= lambda;
+
+// Compute DerDen
+double DerDen = 0.0;
+for (size_t i = 0; i < omegas.size(); ++i) {
+DerDen += omegas[i] * mu_meta[i] * EXP[i] * a_scale * gam1 * std::sqrt(sigma2_meta[i] / variances[i]);
+}
+DerDen *= lambda;
+
+// Compute final result
+double result = (DerNum * Den - DerDen * Num) / (Den * Den);
+
+return result;
+
+}
 
 void vamp::updateNoisePrec(data* dataset){
 
