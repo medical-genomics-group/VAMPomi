@@ -4,6 +4,7 @@
 #include "utilities.hpp"
 #include "data.hpp"
 #include "vamp.hpp"
+#include <boost/math/distributions/normal.hpp>
 
 int main(int argc, char** argv)
 {
@@ -40,6 +41,7 @@ int main(int argc, char** argv)
         // Get command line options
         std::string phenfp = opt.get_phen_file(); // Phenotype file
         std::string mrkfp = opt.get_meth_file();
+        std::string est_file_name = opt.get_estimate_file();
         double alpha_scale = opt.get_alpha_scale();
 
         // Reading train set
@@ -52,7 +54,9 @@ int main(int argc, char** argv)
         
         int max_iter = opt.get_iterations();
         int learn_vars = opt.get_learn_vars();
+        int learn_prior_delay = opt.get_learn_prior_delay();
         double stop_criteria_thr = opt.get_stop_criteria_thr();
+        double merge_vars_thr = opt.get_merge_vars_thr();
         int CG_max_iter = opt.get_CG_max_iter();
         double CG_err_tol = opt.get_CG_err_tol();
         int EM_max_iter = opt.get_EM_max_iter();
@@ -68,6 +72,13 @@ int main(int argc, char** argv)
         else 
             true_signal = std::vector<double> (M, 0.0);
 
+        // Read x1hat_init, if provided
+        std::vector<double> x1hat_init;
+        if(est_file_name != "")
+            x1hat_init = mpi_read_vec_from_file(est_file_name, M, S);
+        else 
+            x1hat_init = std::vector<double> (M, 0.0);
+
         // ---------------- running VAMP algorithm -------------------- //
         vamp emvamp(N, 
                     M,
@@ -82,10 +93,13 @@ int main(int argc, char** argv)
                     EM_err_thr,
                     rho,
                     learn_vars,
+                    learn_prior_delay,
                     stop_criteria_thr,
+                    merge_vars_thr,
                     vars,
                     probs,
                     true_signal,
+                    x1hat_init,
                     out_dir,
                     out_name,
                     model,
@@ -125,6 +139,12 @@ int main(int argc, char** argv)
                             MPI_INFO_NULL,
                             &outcsv_test_fh),
                             __LINE__, __FILE__);
+        // Headers for output files
+        std::vector<std::string> test_header{"iteration", 
+                                            "R2 test", 
+                                            "z correlation test"};
+        if(rank == 0)
+            write_ofile_csv_header(outcsv_test_fh, &test_header);
 
         // parse estimate file name
         std::string est_file_name = opt.get_estimate_file();
@@ -183,50 +203,66 @@ int main(int argc, char** argv)
 
         
     }
-    else if (opt.get_run_mode() == "predict"){
+    else if (opt.get_run_mode() == "association_test"){
 
-        std::string phenfp = opt.get_phen_file();
+        // Get command line options
+        std::string phenfp = opt.get_phen_file(); // Phenotype file
+        std::string mrkfp = opt.get_meth_file();
         double alpha_scale = opt.get_alpha_scale();
 
-        data dataset(phenfp, opt.get_meth_file(), model, N, M, Mt, S, rank, alpha_scale);
+        // Reading data set
+        data dataset(phenfp, mrkfp, model, N , M, Mt, S, rank, alpha_scale);
         
-        std::vector<double> y = dataset.get_phen();
+        std::string pval_method = opt.get_pval_method();
+        std::vector<double> pvals(M, 0.0);
+        std::string filepath_out;
 
-        std::vector<double> beta_true;
-        if(opt.get_true_signal_file() != "" )
-            beta_true = read_vec_from_file(opt.get_true_signal_file(), M, S);
+        if(pval_method == "se"){ // TODO: SE option not tested
+            // Read r vector
+            std::string r1_file_name = opt.get_r1_file();
+            int pos1 = r1_file_name.rfind("it_") + 3;
+            int pos2 = r1_file_name.rfind(".bin");
+            std::string it_str = r1_file_name.substr(pos1, pos2 - pos1);
+            int it = std::stoi(it_str);
+            if (rank == 0)
+                std::cout << r1_file_name << std::endl;
+            std::vector<double> r1 = mpi_read_vec_from_file(r1_file_name, M, S);
 
-        std::string est_file_name = opt.get_estimate_file();
+            double gam1 = opt.get_gam1(); // Signal noise precision
 
-        if (rank == 0)
-            std::cout << "est_file_name = " << est_file_name << std::endl;
-
-        std::vector<double> x_est;
-        x_est = mpi_read_vec_from_file(est_file_name, M, S);
-
-        for (int i0 = 0; i0 < x_est.size(); i0++){
-            x_est[i0] *= sqrt( (double) N );
-            beta_true[i0] *= sqrt( (double) N );
+            for(int j=0; j < M; j++){
+                boost::math::normal norm(r1[j], sqrt(1.0 / (gam1 * (double) N )));
+                double pval = boost::math::cdf(norm, 0);
+                if(r1[j] <= 0.0)
+                    pval = 1 - pval; 
+                pvals[j] = pval;
+            }
+            filepath_out = out_dir + "/" + out_name + "_it_" + it_str + "_pval_se.bin";
+            if (rank == 0)
+                std::cout << "Storing p-values to file " + filepath_out << std::endl;
+            mpi_store_vec_to_file(filepath_out, pvals, S, M);
         }
-                
-        std::vector<double> z = dataset.Ax(x_est.data());
+        else if(pval_method == "loo"){
+            // parse estimate file name
+            std::string est_file_name = opt.get_estimate_file();
+            int pos1 = est_file_name.rfind("it_") + 3;
+            int pos2 = est_file_name.rfind(".bin");
+            std::string it_str = est_file_name.substr(pos1, pos2 - pos1);
+            int it = std::stoi(it_str);
+            std::vector<double> x1_hat = mpi_read_vec_from_file(est_file_name, M, S);
+            // normalization of estimates
+            for (int i0 = 0; i0 < x1_hat.size(); i0++)
+                x1_hat[i0] *= sqrt( (double) N );
 
-        double l2_pred_err2 = 0;
-        for (int i0 = 0; i0 < N; i0++){
-            l2_pred_err2 += (y[i0] - z[i0]) * (y[i0] - z[i0]);
-        }  
-
-        double stdev = calc_stdev(y);
-        if (rank == 0){
-            std::cout << "R2 = " << 1 - l2_pred_err2 / ( stdev * stdev * y.size() ) << std::endl;
+            std::vector<double> z1 = dataset.Ax(x1_hat.data());
+            std::vector<double> y = dataset.get_phen();
+            std::vector<double> pvals = dataset.pvals_loo(z1, y, x1_hat);
+            filepath_out = out_dir + "/" + out_name + "_it_" + it_str + "_pval_loo.bin";
+            if (rank == 0)
+                std::cout << "Storing p-values to file " + filepath_out << std::endl;
+            mpi_store_vec_to_file(filepath_out, pvals, S, M);
         }
-        
-        // Saving predictions
-        std::string filepath_out_z = opt.get_out_dir() + opt.get_out_name() + "_z.yest";
-        store_vec_to_file(filepath_out_z, z);
-        if (rank == 0)
-            std::cout << "prediction filepath is " << filepath_out_z << std::endl;
-        }
+    }
 
     MPI_Barrier(MPI_COMM_WORLD);
     MPI_Finalize();

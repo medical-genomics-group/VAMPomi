@@ -38,6 +38,7 @@ dirpath = os.path.dirname(csv_metrics_fpath)
 # ----------- Reading _test.csv file ----------- #
 csv_test_file = open(csv_test_fpath, newline='', encoding='utf-8')
 csv_test_reader = csv.reader((row.replace('\0', '') for row in csv_test_file), delimiter=',')
+next(csv_test_reader, None) # Skip header
 r2_test = []
 corr2_test = []
 
@@ -54,6 +55,7 @@ corr2_test = np.array(corr2_test)
 
 csv_metrics_file = open(csv_metrics_fpath, newline='', encoding='utf-8')
 csv_metrics_reader = csv.reader((row.replace('\0', '') for row in csv_metrics_file), delimiter=',')
+next(csv_metrics_reader, None) # Skip header
 
 r2_denoising = []
 r2_lmmse = []
@@ -72,6 +74,7 @@ corr_train = np.array(corr_train)
 # ----------- Reading _params.csv file ----------- #
 csv_params_file = open(csv_params_fpath, newline='', encoding='utf-8')
 csv_params_reader = csv.reader((row.replace('\0', '') for row in csv_params_file), delimiter=',')
+next(csv_params_reader, None) # Skip header
 
 gam1 = []
 gamw = []
@@ -86,6 +89,8 @@ gamw = np.array(gamw)
 # ----------- Reading _prior.csv file ----------- #
 csv_prior_file = open(csv_prior_fpath, newline='', encoding='utf-8')
 csv_prior_reader = csv.reader((row.replace('\0', '') for row in csv_prior_file), delimiter=',')
+next(csv_prior_reader, None) # Skip header
+
 lam = []
 for row in csv_prior_reader:
     # train output csv file structure: 

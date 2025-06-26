@@ -18,7 +18,7 @@ private:
     double rho;                                 // damping factor
     double gamw;                                // linear model noise precision 
 
-    std::vector<double> x1_hat, x2_hat, true_signal;
+    std::vector<double> x1_hat, x2_hat, true_signal, x1hat_init;
     std::vector<double> z1_hat, z2_hat;
     std::vector<double> y;                              // phenotype vector
     std::vector<double> z1;                             // z1 = A * x1_hat 
@@ -37,10 +37,12 @@ private:
     double EM_err_thr = 1e-2;
     int CG_max_iter = 100;
     double CG_err_tol = 1e-5;
-    int learn_vars = 0;
+    int learn_vars = 1;
+    int learn_prior_delay = 1;
     double damp_max = 1;
     double damp_min = 0.05;
-    double gam1_stop_criter = 0.0;
+    double stop_criteria_thr = 0.01;
+    double merge_vars_thr = 5e-1;
     
     std::string model;
     std::string out_dir;
@@ -58,6 +60,24 @@ private:
     MPI_File out_metrics_fh;
     MPI_File out_prior_fh;
 
+    // Headers for output files
+    std::vector<std::string> metrics_header{"iteration", 
+                                            "R2 denoising", 
+                                            "x1 correlation denoising", 
+                                            "R2 LMMSE", 
+                                            "x2 correlation LMMSE", 
+                                            "z1 correlation denoising", 
+                                            "z2 correlation LMMSE"};
+
+    std::vector<std::string> params_header{"iteration", 
+                                            "alpha1", 
+                                            "gam1", 
+                                            "alpha2", 
+                                            "gam2", 
+                                            "gamw"};
+
+    std::vector<std::string> prior_header{"iteration", "number of components"}; // rest of the header is specified in io_setup();
+
 public:
     // ---------- CONSTRUCTOR -----------
     vamp( int N,
@@ -73,10 +93,13 @@ public:
             double EM_err_thr,
             double rho,
             int learn_vars,
+            int learn_prior_delay,
             double stop_criteria_thr,
+            double merge_vars_thr,
             std::vector<double> vars,
             std::vector<double> probs, 
-            std::vector<double> true_signal, 
+            std::vector<double> true_signal,
+            std::vector<double> x1hat_init,
             std::string out_dir, 
             std::string out_name, 
             std::string model,

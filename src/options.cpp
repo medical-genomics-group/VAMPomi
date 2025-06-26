@@ -47,6 +47,11 @@ void Options::read_command_line_options(int argc, char** argv) {
             estimate_file = argv[++i];
             ss << "--estimate-file " << estimate_file << "\n";
         }
+        else if (!strcmp(argv[i], "--r1-file")) {
+            if (i == argc - 1) fail_if_last(argv, i);
+            r1_file = argv[++i];
+            ss << "--r1-file " << r1_file << "\n";
+        }
         else if (!strcmp(argv[i], "--cov-estimate-file")) {
             if (i == argc - 1) fail_if_last(argv, i);
             cov_estimate_file = argv[++i];
@@ -121,6 +126,15 @@ void Options::read_command_line_options(int argc, char** argv) {
             learn_vars = (unsigned int) atoi(argv[++i]);
             ss << "--learn-vars " << learn_vars << "\n";
         }
+        else if (!strcmp(argv[i], "--learn-prior-delay")) {
+            if (i == argc - 1) fail_if_last(argv, i);
+            if (atoi(argv[i + 1]) < 0) {
+                std::cout << "FATAL  : option --learn-prior-delay has to be a non-negative integer! (" << argv[i + 1] << " was passed)" << std::endl;
+                exit(EXIT_FAILURE);
+            }
+            learn_prior_delay = (unsigned int) atoi(argv[++i]);
+            ss << "--learn-prior-delay " << learn_prior_delay << "\n";
+        }
         else if (!strcmp(argv[i], "--iterations")) {
             if (i == argc - 1) fail_if_last(argv, i);
             if (atoi(argv[i + 1]) < 1) {
@@ -158,6 +172,11 @@ void Options::read_command_line_options(int argc, char** argv) {
             if (i == argc - 1) fail_if_last(argv, i);
             stop_criteria_thr = atof(argv[++i]);
             ss << "--stop-criteria-thr " << stop_criteria_thr << "\n";
+        }
+        else if (!strcmp(argv[i], "--merge-vars-thr")){ // strcmp return 0 if both strings are identical
+            if (i == argc - 1) fail_if_last(argv, i);
+            merge_vars_thr = atof(argv[++i]);
+            ss << "--merge-vars-thr " << merge_vars_thr << "\n";
         }
         else if (!strcmp(argv[i], "--EM-err-thr")){ // strcmp return 0 if both strings are identical
             if (i == argc - 1) fail_if_last(argv, i);
@@ -255,6 +274,10 @@ void Options::read_command_line_options(int argc, char** argv) {
             if (i == argc - 1) fail_if_last(argv, i);
             CG_err_tol = atof(argv[++i]);
             ss << "--CG-err-tol " << CG_err_tol << "\n";
+        } else if (!strcmp(argv[i], "--pval-method")) {
+            if (i == argc - 1) fail_if_last(argv, i);
+            pval_method = argv[++i];
+            ss << "--pval-method " << pval_method << "\n";
         }
         else {
             std::cout << "FATAL: option \"" << argv[i] << "\" unknown\n";

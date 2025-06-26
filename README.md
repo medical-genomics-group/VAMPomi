@@ -46,15 +46,15 @@ mpirun -np {Number of MPI ranks} ${vloc}/main_meth.exe \
 
 Output files:
 
-- ``example_params.csv`` table containing the model's hyper-parameters over iterations (iteration, alpha1, gam1, alpha2, gam2, gamw)
+- ``example_params.csv`` table containing the model's hyper-parameters over iterations. Column names: iteration, alpha1, gam1, alpha2, gam2, gamw.
 
-- ``example_metrics.csv`` table containing performace metrics over iterations (iteration, R2_denoising, Corr(xhat1,x0), R2_lmmse, Corr(xhat2,x0), Corr(yhat1,y)^2, Corr(yhat2,y)^2)
+- ``example_metrics.csv`` table containing performace metrics over iterations. Column names: iteration, R2_denoising, Corr(xhat1,x0), R2_lmmse, Corr(xhat2,x0), Corr(yhat1,y)^2, Corr(yhat2,y)^2.
 
-- ``example_prior.csv`` table containing the prior parameters over iterations (iteration, number of mix. components L, L * prior probabilities, L * prior variances)
+- ``example_prior.csv`` table containing the prior parameters over iterations. Column names: iteration, number of mix. components L, L * prior probabilities, L * prior variances
 
-- ``example_it_{iteration}.bin`` binary files containing signal estimates from denoising step xhat1 in current iteration.
+- ``example_it_{iteration}.bin`` binary files containing signal estimates from denoising step xhat1 in current iteration. 8 byte DOUBLE precision values.
 
-- ``example_r1_it_{iteration}.bin`` binary files containing noise corrupted signal estimates from denoising step r1 in current iteration.
+- ``example_r1_it_{iteration}.bin`` binary files containing noise corrupted signal estimates from denoising step r1 in current iteration. 8 byte DOUBLE precision values.
 
 ### Testing
 If test subset is available, running gVAMPomi for out-of-sample testing requires at least:
@@ -74,10 +74,49 @@ mpirun -np {Number of MPI ranks} ${vloc}/main_meth.exe \
 ```
 Output file:
 
-- ``example_test.csv`` table containing out-of-sample metrics over iterations (iteration, R2, Corr(yhat,y)^2)
+- ``example_test.csv`` table containing out-of-sample metrics over iterations. Column names: iteration, R2 test, Corr(yhat,y)^2
 
 ### Association testing
-Evaluating statistical significance (p-value) of marker association for null hypothesis can be done using python script ``scripts/p_vals.py``. Example:
+gVAMPomi framework allows to test statistical significance of marker associations. Currently supported pval methods (--pval-method) are state evolution (se) or leave one out (loo) testing. State evolution p value testing example: 
+```
+export OMP_NUM_THREADS={Number of OpenMP threads}
+
+mpirun -np {Number of MPI ranks} ${vloc}/main_meth.exe \                      
+                                --meth-file-test example.bin \
+                                --phen-file-test example.phen \
+                                --N 1000 \
+                                --Mt 2000 \
+                                --out-dir output/ \
+                                --out-name example \
+                                --r1-file example_r1_it_{iteration}.bin \
+                                --gam1 {gam1 value from iteration} \
+                                --run-mode association_test \
+                                --pval-method se \
+```
+
+Output file:
+- ``example_it_{iteration}_pval_se.bin`` binary file containing p values from state evlolution. 8 byte DOUBLE precision values.
+
+Leave one out (loo) p value testing example: 
+```
+export OMP_NUM_THREADS={Number of OpenMP threads}
+
+mpirun -np {Number of MPI ranks} ${vloc}/main_meth.exe \                      
+                                --meth-file-test example.bin \
+                                --phen-file-test example.phen \
+                                --N 1000 \
+                                --Mt 2000 \
+                                --out-dir output/ \
+                                --out-name example \
+                                --estimate-file example_it_{iteration}.bin \
+                                --run-mode association_test \
+                                --pval-method loo \
+```
+
+Output file:
+- ``example_it_{iteration}_pval_loo.bin`` binary file containing p values from leave one out testing. 8 byte DOUBLE precision values.
+
+Eventully, state evolution p value testing can be done using python script ``scripts/p_vals.py``. Example:
 ```
 python3 p_vals.py   --out-name example \
                     --csv-params example_params.csv \
@@ -88,7 +127,7 @@ python3 p_vals.py   --out-name example \
                     --N 1000 \
 ```
 Output file:
-- ``example_it_{iteration}_pval.bin`` binary file containing p-values for each marker position in current iteration.
+- ``example_it_{iteration}_pval.bin`` binary file containing p values for each marker position in current iteration. 8 byte DOUBLE precision values.
 
 # Input options
 
@@ -104,6 +143,7 @@ Output file:
 | `--cov-file` | Path to .cov file including covariates | |
 | `--cov-file-test` | Path to .cov file including covariates for testing | |
 | `--estimate-file` | Path to file including signal estimates for testing | |
+| `--r1-file` | Path to file including r1 vector - noised version of signal estimates | |
 | `--N` | Number of individuals for inference | |
 | `--N-test` | Number of individuals for testing | |
 | `--Mt` | Total number of markers for inference | |
@@ -113,6 +153,7 @@ Output file:
 | `--iterations` | Maximal number of iterations | 10 |
 | `--test-iter-range` | Iteration range for testing | 1,10 |
 | `--rho` | Damping factor | 0.5 |
+| `--gam1` | Signal noise precision. Used for initialization when ``infer`` mode, used for p value calculation when ``association_test`` mode | 1e-6 |
 | `--h2` | Heritability value used in simulations | 0.5 |
 | `--true_signal_file` | Path to binary file containing true signals | |
 | `--num-mix-comp` | Nnumber of gaussian mixture components | 2 |

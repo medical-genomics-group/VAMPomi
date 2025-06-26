@@ -45,6 +45,9 @@ std::vector<double> vamp::infere_bin_class( data* dataset ){
         true_signal_scaled[i] = true_signal[i] * sqrtN;
     std::vector<double> true_g = (*dataset).Ax(true_signal_scaled.data());
 
+    // Bernoulli distribution for trace estimation
+    std::bernoulli_distribution bern(0.5);
+    bern_vec = std::vector<double> (M, 0.0);
 
     // Gaussian noise start
     p1 = simulate(N, std::vector<double> {1.0}, std::vector<double> {1.0});
@@ -78,7 +81,7 @@ std::vector<double> vamp::infere_bin_class( data* dataset ){
             //cov_eff = grad_desc_cov(y, gg, probit_var, Z, cov_eff); // std::vector<double>(C, 0.0)
             cov_eff = Newton_method_cov(y, gg, Z, cov_eff);
 
-            if (rank == 0 && verbosity == 1){
+            if (rank == 0){
                 for (int i0=0; i0<C; i0++){
                     std::cout << "cov_eff[" << i0 << "] = " << cov_eff[i0] << ", ";
                     if (i0 % 4 == 3)
@@ -135,6 +138,19 @@ std::vector<double> vamp::infere_bin_class( data* dataset ){
             //updatePrior();
             if (it > 1) updatePrior();
 
+            // prior distribution parameters
+            if (rank == 0){
+                std::cout << "Prior variances = ";
+                for (int i = 0; i < vars.size(); i++)
+                    std::cout << vars[i] / (double) N << ' ';
+                std::cout << std::endl;
+    
+                std::cout << "Prior probabilities = ";
+                for (int i = 0; i < probs.size(); i++)
+                    std::cout << probs[i] << ' ';
+                std::cout << std::endl;
+            }
+
             //if ( abs(gam1 - gam1_reEst_prev) < 1e-3 )
             //    break;
             
@@ -150,7 +166,7 @@ std::vector<double> vamp::infere_bin_class( data* dataset ){
 
         // saving x1_hat to file
         std::vector<double> x1_hat_scaled = x1_hat;
-        std::string filepath_out = out_dir + out_name + "_it_" + std::to_string(it) + ".bin";
+        std::string filepath_out = out_dir + "/" + out_name + "_it_" + std::to_string(it) + ".bin";
         int S = (*dataset).get_S();
         for (int i0 = 0; i0 < x1_hat_scaled.size(); i0++)
             x1_hat_scaled[i0] =  x1_hat[i0] / sqrtN;
@@ -160,7 +176,7 @@ std::vector<double> vamp::infere_bin_class( data* dataset ){
             std::cout << "...storing x1_hat to file " << filepath_out << std::endl;
 
         // saving r1 to file
-        std::string filepath_out_r1 = out_dir + out_name + "_r1_it_" + std::to_string(it) + ".bin";
+        std::string filepath_out_r1 = out_dir + "/" + out_name + "_r1_it_" + std::to_string(it) + ".bin";
         std::vector<double> r1_scaled = r1;
         for (int i0 = 0; i0 < r1_scaled.size(); i0++)
             r1_scaled[i0] =  r1[i0] / sqrtN;
@@ -215,7 +231,8 @@ std::vector<double> vamp::infere_bin_class( data* dataset ){
 
                 beta1 += g1d_bin_class(p1[i], tau1, y[i], m_cov);
             }
-
+            if(beta1 >= N)
+                beta1 = N - 1.0;
             beta1 /= N;
             double zeta1 = tau1 / beta1;
 
@@ -274,7 +291,11 @@ std::vector<double> vamp::infere_bin_class( data* dataset ){
         // ---------- LMMSE estimation of x ---------- //
         double start_LMMSE = MPI_Wtime();
         if (rank == 0)
-            std::cout << std::endl << "->LMMMSE" << std::endl;
+            std::cout << std::endl << "->LMMSE" << std::endl;
+
+        // Sample random Bernoulli vector for trace estimation
+        for (int i = 0; i < M; i++)
+            bern_vec[i] = (2*bern(rd) - 1) / sqrt(Mt); // Bernoulli variables are sampled independently
 
         std::vector<double> v = (*dataset).ATx(p2.data());
 
@@ -322,6 +343,7 @@ std::vector<double> vamp::infere_bin_class( data* dataset ){
 
         gam1_prev = gam1;
         gam1 = gam2 * (1-alpha2) / alpha2;
+        gam1 = std::min(std::max(gam1, gamma_min ), gamma_max);
 
         // apply damping 
         //gam1 = rho * gam1 + (1-rho) * gam1_prev;
@@ -351,6 +373,7 @@ std::vector<double> vamp::infere_bin_class( data* dataset ){
 
         tau1_prev = tau1;
         tau1 = tau2 * (1 - beta2) / beta2;
+        tau1 = std::min(std::max(tau1, gamma_min ), gamma_max);
 
         //  apply damping to z variance
         //tau1 = rho * tau1 + (1 - rho) * tau1_prev;
@@ -413,6 +436,30 @@ std::vector<double> vamp::infere_bin_class( data* dataset ){
 
         if(rank == 0)
             std::cout << "Total time so far = " << total_time << " seconds." << std::endl;
+
+        // Stopping criteria
+        if (rank == 0)
+            std::cout << "...stopping criteria assessment" << std::endl;
+
+        std::vector<double> x1_hat_diff = std::vector<double>(M, 0.0);
+        for (int i = 0; i < M; i++)
+            x1_hat_diff[i] = x1_hat_prev[i] - x1_hat[i];
+
+        double NMSE = sqrt( l2_norm2(x1_hat_diff, 1) / l2_norm2(x1_hat_prev, 1) );
+        if (rank == 0)
+            std::cout << "x1_hat NMSE = " << NMSE << std::endl;
+        if (rank == 0)
+            std::cout << "stop_criteria_thr = " << stop_criteria_thr << std::endl;
+
+        if (it > 1 && NMSE < stop_criteria_thr){
+            if (rank == 0)
+                std::cout << "...stopping criteria fulfilled" << std::endl;
+            break;
+        }
+        if (it == max_iter){
+            if (rank == 0)
+                std::cout << "...maximal number of iterations was achieved. The algorithm might not converge!" << std::endl;
+        }
     }
     
     return x1_hat;
