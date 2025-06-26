@@ -18,7 +18,7 @@ private:
     double rho;                                 // damping factor
     double gamw;                                // linear model noise precision 
 
-    std::vector<double> x1_hat, x2_hat, true_signal;
+    std::vector<double> x1_hat, x2_hat, true_signal, x1hat_init;
     std::vector<double> z1_hat, z2_hat;
     std::vector<double> y;                              // phenotype vector
     std::vector<double> z1;                             // z1 = A * x1_hat 
@@ -99,6 +99,7 @@ public:
             std::vector<double> vars,
             std::vector<double> probs, 
             std::vector<double> true_signal,
+            std::vector<double> x1hat_init,
             std::string out_dir, 
             std::string out_name, 
             std::string model,

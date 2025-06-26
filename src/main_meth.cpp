@@ -72,6 +72,13 @@ int main(int argc, char** argv)
         else 
             true_signal = std::vector<double> (M, 0.0);
 
+        // Read x1hat_init, if provided
+        std::vector<double> x1hat_init;
+        if(est_file_name != "")
+            x1hat_init = mpi_read_vec_from_file(est_file_name, M, S);
+        else 
+            x1hat_init = std::vector<double> (M, 0.0);
+
         // ---------------- running VAMP algorithm -------------------- //
         vamp emvamp(N, 
                     M,
@@ -92,6 +99,7 @@ int main(int argc, char** argv)
                     vars,
                     probs,
                     true_signal,
+                    x1hat_init,
                     out_dir,
                     out_name,
                     model,

@@ -34,6 +34,7 @@ vamp::vamp( int N,
             std::vector<double> vars,
             std::vector<double> probs, 
             std::vector<double> true_signal,
+            std::vector<double> x1hat_init,
             std::string out_dir, 
             std::string out_name, 
             std::string model,
@@ -59,17 +60,24 @@ vamp::vamp( int N,
             vars(vars),
             probs(probs),
             true_signal(true_signal),
+            x1hat_init(x1hat_init),
             out_dir(out_dir),
             out_name(out_name),
             model(model),
             verbosity(verbosity),
             rank(rank){
 
-                x1_hat = std::vector<double> (M, 0.0);
+                //x1_hat = std::vector<double> (M, 0.0);
+                for (int i0=0; i0<x1_hat.size(); i0++)
+                    x1_hat[i0] =  x1hat_init[i0] / sqrt(N);
+                
                 x2_hat = std::vector<double> (M, 0.0);
                 
                 //r1 = simulate(M, std::vector<double> {1.0 / gam1}, std::vector<double> {1});
-                r1 = std::vector<double> (M, 0.0);
+                //r1 = std::vector<double> (M, 0.0);
+                for (int i0=0; i0<x1_hat.size(); i0++)
+                    r1[i0] =  x1hat_init[i0] / sqrt(N);
+                
                 r2 = std::vector<double> (M, 0.0);
                 p1 = std::vector<double> (N, 0.0);
     
