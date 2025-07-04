@@ -1,0 +1,161 @@
+{
+  "name": "gvampomi",
+  "title": "gVAMPomi",
+  "summary": "Software implementation of Vector Approximate Message Passing algorithm suitable for doing inference in Epigenome-Wide Association Studies",
+  "dxapi": "1.0.0",
+  "version": "0.0.1",
+  "access": {
+    "network": ["*"]
+  },
+  "inputSpec": [
+    {
+      "name": "model",
+      "label": "Model",
+      "class": "string",
+      "optional": false,
+      "help": "linear/bin_class"
+    },
+    {
+      "name": "data_file",
+      "label": "Binary data file",
+      "class": "file",
+      "optional": false,
+      "patterns": ["*"],
+      "help": ""
+    },
+    {
+      "name": "probe_file",
+      "label": "Probe txt file",
+      "class": "file",
+      "optional": false,
+      "patterns": ["*"],
+      "help": ""
+    },
+    {
+      "name": "phen_file",
+      "label": "PLINK phen file",
+      "class": "file",
+      "optional": false,
+      "patterns": ["*"],
+      "help": ""
+    },
+    {
+      "name": "cov_file",
+      "label": "PLINK covariate file",
+      "class": "file",
+      "optional": true,
+      "patterns": ["*"],
+      "help": ""
+    },
+    {
+      "name": "iterations",
+      "label": "Iterations",
+      "class": "string",
+      "optional": true,
+      "help": ""
+    },
+    {
+      "name": "rho",
+      "label": "Damping factor",
+      "class": "string",
+      "optional": true,
+      "help": ""
+    },
+    {
+      "name": "stop_criteria_thr",
+      "label": "Stop criteria threshold",
+      "class": "string",
+      "optional": true,
+      "help": ""
+    },
+    {
+      "name": "prior_probs",
+      "label": "Prior probabilities",
+      "class": "string",
+      "optional": true,
+      "help": ""
+    },
+    {
+      "name": "prior_vars",
+      "label": "Prior variances",
+      "class": "string",
+      "optional": true,
+      "help": ""
+    },
+    {
+      "name": "out",
+      "label": "Output",
+      "class": "string",
+      "optional": false,
+      "help": ""
+    }
+  ],
+  "outputSpec": [
+    {
+      "name": "marker_estimates",
+      "label": "Genomic marker estimates and associations file",
+      "class": "file",
+      "patterns": [
+        "*"
+      ],
+      "help": ""
+    },
+    {
+      "name": "summary_file",
+      "label": "Summary parameters",
+      "class": "file",
+      "patterns": [
+        "*"
+      ],
+      "help": ""
+    },
+    {
+      "name": "log_file",
+      "label": "gVAMPomi log file",
+      "class": "file",
+      "patterns": [
+        "*"
+      ],
+      "help": ""
+    }
+  ],
+  "runSpec": {
+    "timeoutPolicy": {
+      "*": {
+        "days": 30
+      }
+    },
+    "interpreter": "bash",
+    "file": "src/gvamp.sh",
+    "distribution": "Ubuntu",
+    "release": "24.04",
+    "version": "0",
+    "execDepends": [
+      {
+        "name": "numpy",
+        "package_manager": "pip3"
+      },
+      {
+        "name": "pandas",
+        "package_manager": "pip3"
+      },
+      {
+        "name": "argparse",
+        "package_manager": "pip3"
+      },
+      {
+        "name": "scipy",
+        "package_manager": "pip3"
+      }
+    ]
+  },
+  "regionalOptions": {
+    "aws:eu-west-2": {
+      "systemRequirements": {
+        "*": {
+          "instanceType": "mem1_ssd1_v2_x8"
+        }
+      }
+    }
+  }
+}
